@@ -1,0 +1,35 @@
+option('sqlite',
+  type: 'feature',
+  value: 'auto',
+  description: 'SQLite database backend'
+)
+option('synctex',
+  type: 'feature',
+  value: 'auto',
+  description: 'SyncTeX integration'
+)
+option('magic',
+  type: 'feature',
+  value: 'auto',
+  description: 'magic-based MIME type detection'
+)
+option('seccomp',
+  type: 'feature',
+  value: 'auto',
+  description: 'seccomp-based sandbox'
+)
+option('manpages',
+  type: 'feature',
+  value: 'auto',
+  description: 'manual pages'
+)
+option('tests',
+  type: 'feature',
+  value: 'auto',
+  description: 'run tests'
+)
+option('convert-icon',
+  type: 'feature',
+  value: 'auto',
+  description: 'convert icon to PNG'
+)
