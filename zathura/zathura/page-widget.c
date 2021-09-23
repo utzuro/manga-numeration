@@ -892,14 +892,13 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       }
       else {
         printf( "\nFile was opened correctly\n");
-        fprintf(numbers, "%f %f\n", button->x, button->y);
+        printf("%u", zathura_page_get_index(priv->page)+1);
+        fprintf(numbers, "%u %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y);
       }
       fclose(numbers);
 //    start the selection
       priv->mouse.selection_basepoint.x = button->x;
       priv->mouse.selection_basepoint.y = button->y;
-      page;
-      
 
 
       priv->mouse.selection.x1 = button->x;
