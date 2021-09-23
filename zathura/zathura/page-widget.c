@@ -16,6 +16,9 @@
 #include "shortcuts.h"
 #include "zathura.h"
 
+//extra
+#include <stdio.h>
+
 typedef struct zathura_page_widget_private_s {
   zathura_page_t* page; /**< Page object */
   zathura_t* zathura; /**< Zathura object */
@@ -882,28 +885,31 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
-      /* start the selection */
+      FILE *numbers = fopen("numbers", "a");
+      /* log click for testing purposes */
+      if (numbers == NULL) {
+        printf("\nFile wasn't opened correctly\n");
+      }
+      else {
+        printf( "\nFile was opened correctly\n");
+        fprintf(numbers, "%f %f\n", button->x, button->y);
+      }
+      fclose(numbers);
+//    start the selection
       priv->mouse.selection_basepoint.x = button->x;
       priv->mouse.selection_basepoint.y = button->y;
+      page;
+      
+
 
       priv->mouse.selection.x1 = button->x;
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
-    } else if (button->type == GDK_2BUTTON_PRESS || button->type == GDK_3BUTTON_PRESS) {
-      /* abort the selection */
-      priv->mouse.selection_basepoint.x = -1;
-      priv->mouse.selection_basepoint.y = -1;
-
-      priv->mouse.selection.x1 = -1;
-      priv->mouse.selection.y1 = -1;
-      priv->mouse.selection.x2 = -1;
-      priv->mouse.selection.y2 = -1;
-    }
-
+    } 
     return true;
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
-    zathura_page_widget_popup_menu(widget, button);
+    /** Remove Number **/
     return true;
   }
 
