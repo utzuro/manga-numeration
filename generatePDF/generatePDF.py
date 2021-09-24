@@ -1,4 +1,5 @@
 from PyPDF2 import PdfFileReader, PdfFileWriter
+from numpy import double
 
 from reportlab.lib.colors import lightskyblue
 from reportlab.lib.pagesizes import A4
@@ -54,26 +55,28 @@ def merge_pdfs(original, output, mark):
         writer.write(output)
 
 
-def create_marks_pdf(marks, output):
+def create_marks_pdf(output, marks):
     canvas = Canvas(output, pagesize=A4)
     canvas.setFillColor(lightskyblue)
-    canvas.setFont("Helvetica-Bold", 25)
-    # for mark in marks:
-    #     parameters = mark.split(' ')
-    #     canvas.drawString(float(parameters[1]), float(parameters[2]), "4")
-    for i in range(0,1000,5):
-        canvas.drawString(i * mm, 10 * mm, i)
+    canvas.setFont("Helvetica-Bold", 18)
+    alpha = 0.163716   # For converting original coordination system to mm
+    max_height = 185
+    bubble_number = 0
+    page_number = 0
+    for mark in marks:
+        parameters = mark.split(' ')
+        zoom = double(parameters[3])
+        x = double(parameters[1]) * alpha / zoom
+        y = max_height - (double(parameters[2]) * alpha) / zoom
 
-    j = 1
-    for i in range(0,700, 5):
-        canvas.drawString(j * 5 * mm, i * mm, i)
-        if j%10 == 0:
-            j++
+        if page_number < parameters[0]:
+            page_number = parameters[0]
+            canvas.showPage()  # Close page and move to the next one.
 
-
-
-    canvas.drawString(300/3.78 * mm, 300/3.78 * mm, "Blue Text!")
+        canvas.drawString(x * mm, y * mm, str(bubble_number + 1))
+        bubble_number += 1
     canvas.save()
+
 
 if __name__ == '__main__':
     pdf_path = 'test.pdf'
@@ -83,5 +86,5 @@ if __name__ == '__main__':
     numeric_pdf_path = ""
     get_number_of_pages(pdf_path)
     coordinates = read_coordinates(coordinates_path)  # we got the list
-    create_marks_pdf(coordinates, mark_path)
+    create_marks_pdf(mark_path, coordinates)
     merge_pdfs(pdf_path, output_path, mark_path)

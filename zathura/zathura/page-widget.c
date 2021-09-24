@@ -886,8 +886,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
       FILE *numbers = fopen("numbers", "a");
-     double page_zoom = zathura_document_get_zoom(priv->zathura->documnet);  
-     printf("zoom is: %f", page_zoom);
+      double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
+      printf("zoom is: %f", page_zoom);
       /* log click for testing purposes */
       if (numbers == NULL) {
         printf("\nFile wasn't opened correctly\n");
