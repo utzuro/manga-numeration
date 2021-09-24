@@ -886,6 +886,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
       FILE *numbers = fopen("numbers", "a");
+     double page_zoom = zathura_document_get_zoom(priv->zathura->documnet);  
+     printf("zoom is: %f", page_zoom);
       /* log click for testing purposes */
       if (numbers == NULL) {
         printf("\nFile wasn't opened correctly\n");
@@ -893,7 +895,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       else {
         printf( "\nFile was opened correctly\n");
         printf("%u", zathura_page_get_index(priv->page)+1);
-        fprintf(numbers, "%u %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y);
+        fprintf(numbers, "%u %f %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y, page_zoom);
       }
       fclose(numbers);
 //    start the selection
