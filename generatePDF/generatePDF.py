@@ -61,9 +61,19 @@ def create_marks_pdf(marks, output):
     # for mark in marks:
     #     parameters = mark.split(' ')
     #     canvas.drawString(float(parameters[1]), float(parameters[2]), "4")
+    for i in range(0,1000,5):
+        canvas.drawString(i * mm, 10 * mm, i)
+
+    j = 1
+    for i in range(0,700, 5):
+        canvas.drawString(j * 5 * mm, i * mm, i)
+        if j%10 == 0:
+            j++
+
+
+
     canvas.drawString(300/3.78 * mm, 300/3.78 * mm, "Blue Text!")
     canvas.save()
-
 
 if __name__ == '__main__':
     pdf_path = 'test.pdf'
