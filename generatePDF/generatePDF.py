@@ -46,9 +46,9 @@ def merge_pdfs(original, output, mark):
         print("Number of pages is not the same")
         # return
 
-    for page_number in range(original_reader.getNumPages()):
+    for page_number in range(mark_reader.getNumPages()):
         page = original_reader.getPage(page_number)
-        page.mergePage(mark_reader.getPage(0))  # page_number
+        page.mergePage(mark_reader.getPage(page_number))
         writer.addPage(page)
 
     with open(output, 'wb') as output:
@@ -57,22 +57,22 @@ def merge_pdfs(original, output, mark):
 
 def create_marks_pdf(output, marks):
     canvas = Canvas(output, pagesize=A4)
-    canvas.setFillColor(lightskyblue)
-    canvas.setFont("Helvetica-Bold", 18)
     alpha = 0.163716   # For converting original coordination system to mm
     max_height = 185
     bubble_number = 0
-    page_number = 0
+    page_number = 1
     for mark in marks:
         parameters = mark.split(' ')
         zoom = double(parameters[3])
         x = double(parameters[1]) * alpha / zoom
         y = max_height - (double(parameters[2]) * alpha) / zoom
 
-        if page_number < parameters[0]:
-            page_number = parameters[0]
+        if page_number < int(parameters[0]):
+            page_number = int(parameters[0])
             canvas.showPage()  # Close page and move to the next one.
 
+        canvas.setFillColor(lightskyblue)
+        canvas.setFont("Helvetica-Bold", 8)
         canvas.drawString(x * mm, y * mm, str(bubble_number + 1))
         bubble_number += 1
     canvas.save()
@@ -88,3 +88,4 @@ if __name__ == '__main__':
     coordinates = read_coordinates(coordinates_path)  # we got the list
     create_marks_pdf(mark_path, coordinates)
     merge_pdfs(pdf_path, output_path, mark_path)
+    get_number_of_pages(output_path)
