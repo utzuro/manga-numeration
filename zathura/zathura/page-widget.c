@@ -19,6 +19,17 @@
 //extra
 #include <stdio.h>
 
+typedef struct {
+	 struct {
+		 double x1;
+		 double y1;
+		 double x2;
+		 double y2;
+	 } pos;
+	 uint index;
+	 uint page;
+  } manga_number_point;
+
 typedef struct zathura_page_widget_private_s {
   zathura_page_t* page; /**< Page object */
   zathura_t* zathura; /**< Zathura object */
@@ -55,6 +66,14 @@ typedef struct zathura_page_widget_private_s {
     } selection_basepoint;
     gboolean over_link;
   } mouse;
+
+  struct {
+	  char* font_family;
+	  int font_size;
+	  int count;
+	  manga_number_point* list;
+  } manga_number_list;
+  
 } ZathuraPagePrivate;
 
 G_DEFINE_TYPE_WITH_CODE(ZathuraPage, zathura_page_widget, GTK_TYPE_DRAWING_AREA, G_ADD_PRIVATE(ZathuraPage))
@@ -229,9 +248,74 @@ zathura_page_widget_init(ZathuraPage* widget)
   priv->mouse.selection_basepoint.x = -1;
   priv->mouse.selection_basepoint.y = -1;
 
+  priv->manga_number_list.font_family = "Helvetica-Bold";
+  priv->manga_number_list.font_size = 8;
+  priv->manga_number_list.count = 0; 
+
   const unsigned int event_mask = GDK_BUTTON_PRESS_MASK |
     GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_LEAVE_NOTIFY_MASK;
   gtk_widget_add_events(GTK_WIDGET(widget), event_mask);
+}
+
+
+void manga_normalize_pos(manga_number_point* point)
+{
+	if (point->pos.x1 < 0)
+		point->pos.x1 = 0;
+	if (point->pos.y1 < 0)
+		point->pos.y1 = 0;
+}
+
+zathura_rectangle_t*
+manga_number_point_to_rectangle(manga_number_point* point)
+{
+	if (point == NULL)
+		return NULL;
+
+	zathura_rectangle_t* rectangle = malloc(sizeof(zathura_rectangle_t));
+	rectangle->x1 = point->pos.x1;
+	rectangle->x2 = point->pos.x2;
+	rectangle->y1 = point->pos.y1;
+	rectangle->y2 = point->pos.y2;
+
+	return rectangle;
+}
+
+manga_number_point*
+manga_get_last_point(ZathuraPagePrivate* priv)
+{
+	if (priv == NULL)
+		return NULL;
+
+	return &priv->manga_number_list.list[priv->manga_number_list.count];
+}
+
+int manga_remove_last_number_point(ZathuraPagePrivate* priv)
+{
+	return priv->manga_number_list.count--;
+	//TODO:Need to be fixed to clear memory
+}
+
+int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_point)
+{
+	manga_number_point* new_point_list;
+	new_point_list = (manga_number_point *) malloc( (priv->manga_number_list.count + 1) * sizeof(manga_number_point));
+
+	for (int i = 0; i < priv->manga_number_list.count; i++)
+	{
+		new_point_list[i] = priv->manga_number_list.list[i];
+	}
+
+	new_point_list[priv->manga_number_list.count] = new_point;
+
+	free(priv->manga_number_list.list);
+
+	priv->manga_number_list.list = new_point_list;
+	priv->manga_number_list.count++;
+
+	new_point_list = NULL;
+
+	return 0;
 }
 
 GtkWidget*
@@ -873,6 +957,9 @@ zathura_page_widget_link_get(ZathuraPage* widget, unsigned int index)
 static gboolean
 cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* button)
 {
+  printf("GTK event is: %d\n", button->state);
+  printf("GTK button send_event: %d\n",button->send_event);
+  printf("GTK button statement: %d\n",button->type);
   g_return_val_if_fail(widget != NULL, false);
   g_return_val_if_fail(button != NULL, false);
 
@@ -886,6 +973,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
 
+	  // Writing click coordinates to file
       FILE *numbers = fopen("numbers", "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
@@ -902,14 +990,17 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       }
 
       fclose(numbers);
-//    #Here# drawing rectangle in zathura
-     zathura_rectangle_t rectangle;
-    rectangle.x1 = button->x;
-    rectangle.y1 = button->y;
-    rectangle.x2 = button->x + 9;
-    rectangle.y2 = button->y + 9;
 
-    redraw_rect(page, &rectangle);
+      manga_number_point manga_point;
+      manga_point.index = priv->manga_number_list.count + 1;
+      manga_point.pos.x1 = button->x - priv->manga_number_list.font_size / 2.0;
+      manga_point.pos.y1 = button->y - priv->manga_number_list.font_size / 2.0;
+      manga_point.pos.x2 = button->x + priv->manga_number_list.font_size / 2.0;
+      manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0;
+      manga_point.page = zathura_page_get_index(priv->page) + 1;
+
+      manga_normalize_pos(&manga_point);
+      manga_add_new_number_point(priv, manga_point);
 
 //    start the selection
       priv->mouse.selection_basepoint.x = button->x;
@@ -920,10 +1011,23 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
+      /*printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
+		      priv->mouse.selection.y1, 
+		      priv->mouse.selection.x2, 
+		      priv->mouse.selection.y2);*/
+
     } 
     return true;
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
+    if ( priv->manga_number_list.count > 0){
+	int count = manga_remove_last_number_point(priv);
+	if ( priv->manga_number_list.list[count].index == zathura_page_get_index(priv->page) + 1)
+		redraw_rect(ZATHURA_PAGE(priv->page),
+				manga_number_point_to_rectangle(&priv->manga_number_list.list[count])
+			   );
+
+	}
     return true;
   }
 
@@ -939,7 +1043,7 @@ cb_zathura_page_widget_button_release_event(GtkWidget* widget, GdkEventButton* b
   if (button->type != GDK_BUTTON_RELEASE) {
     return false;
   }
-  return false; // don't clear squares (use them as pointers for manga numeration).
+  //return false; // don't clear squares (use them as pointers for manga numeration).
 
 
   const int oldx = button->x;
@@ -965,6 +1069,7 @@ cb_zathura_page_widget_button_release_event(GtkWidget* widget, GdkEventButton* b
 
   if (priv->mouse.selection.y2 == -1 && priv->mouse.selection.x2 == -1 ) {
     /* simple single click */
+
     /* get links */
     if (priv->links.retrieved == false) {
       priv->links.list      = zathura_page_links_get(priv->page, NULL);
