@@ -258,8 +258,13 @@ zathura_page_widget_init(ZathuraPage* widget)
 }
 
 
-void manga_normalize_pos(manga_number_point* point)
+void manga_normalize_pos(manga_number_point* point, double zoom)
 {
+	point->pos.x1 /= zoom;
+	point->pos.x2 /= zoom;
+	point->pos.y1 /= zoom;
+	point->pos.y2 /= zoom;
+
 	if (point->pos.x1 < 0)
 		point->pos.x1 = 0;
 	if (point->pos.y1 < 0)
@@ -298,6 +303,7 @@ int manga_remove_last_number_point(ZathuraPagePrivate* priv)
 
 int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_point)
 {
+	printf("adding new point...\n");
 	manga_number_point* new_point_list;
 	new_point_list = (manga_number_point *) malloc( (priv->manga_number_list.count + 1) * sizeof(manga_number_point));
 
@@ -315,6 +321,15 @@ int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_
 
 	new_point_list = NULL;
 
+	for(int i = 0; i < priv->manga_number_list.count; i++)
+	{
+		printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
+				priv->manga_number_list.list[i].pos.y1,
+			       	priv->manga_number_list.list[i].pos.x2,
+				priv->manga_number_list.list[i].pos.y2);
+
+
+	}
 	return 0;
 }
 
@@ -683,6 +698,32 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
       );
     }
 
+    /*Draw manga marks#*/
+    if (priv->manga_number_list.count > 0){
+	    printf("Start drawing rectangles...\n");
+	const GdkRGBA color = priv->zathura->ui.colors.highlight_color;
+
+	    for (int i = 0; i < priv->manga_number_list.count; i++)
+	    {
+			
+		    printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
+				priv->manga_number_list.list[i].pos.y1,
+			       	priv->manga_number_list.list[i].pos.x2,
+				priv->manga_number_list.list[i].pos.y2);
+
+
+		    manga_number_point manga_point = priv->manga_number_list.list[i];
+		    manga_normalize_pos(&manga_point, 1.0 / zathura_document_get_zoom(priv->zathura->document));
+		    
+		    zathura_rectangle_t rectangle = recalc_rectangle(
+				    zathura_document_get_page(priv->zathura->document, manga_point.index), 
+				    *manga_number_point_to_rectangle(&manga_point));
+
+		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
+		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2, rectangle.y2);
+	    }
+
+    }
     /* draw search results */
     if (priv->search.list != NULL && priv->search.draw == true) {
       int idx = 0;
@@ -999,7 +1040,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0;
       manga_point.page = zathura_page_get_index(priv->page) + 1;
 
-      manga_normalize_pos(&manga_point);
+      manga_normalize_pos(&manga_point, page_zoom);
       manga_add_new_number_point(priv, manga_point);
 
 //    start the selection
