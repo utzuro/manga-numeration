@@ -80,6 +80,7 @@ G_DEFINE_TYPE_WITH_CODE(ZathuraPage, zathura_page_widget, GTK_TYPE_DRAWING_AREA,
 
 static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo);
 static void zathura_page_widget_finalize(GObject* object);
+static void zathura_page_widget_redraw_canvas(ZathuraPage*);
 static void zathura_page_widget_dispose(GObject* object);
 static void zathura_page_widget_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec);
 static void zathura_page_widget_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec);
@@ -249,7 +250,7 @@ zathura_page_widget_init(ZathuraPage* widget)
   priv->mouse.selection_basepoint.y = -1;
 
   priv->manga_number_list.font_family = "Helvetica-Bold";
-  priv->manga_number_list.font_size = 8;
+  priv->manga_number_list.font_size = 100;
   priv->manga_number_list.count = 0; 
 
   const unsigned int event_mask = GDK_BUTTON_PRESS_MASK |
@@ -701,7 +702,11 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
     /*Draw manga marks#*/
     if (priv->manga_number_list.count > 0){
 	    printf("Start drawing rectangles...\n");
-	const GdkRGBA color = priv->zathura->ui.colors.highlight_color;
+	GdkRGBA color;
+	color.red = 135.0/250.0;
+       	color.green = 206.0/250.0;
+	color.blue = 250.0/250.0;
+	color.alpha = 1.0;
 
 	    for (int i = 0; i < priv->manga_number_list.count; i++)
 	    {
@@ -715,12 +720,10 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 		    manga_number_point manga_point = priv->manga_number_list.list[i];
 		    manga_normalize_pos(&manga_point, 1.0 / zathura_document_get_zoom(priv->zathura->document));
 		    
-		    zathura_rectangle_t rectangle = recalc_rectangle(
-				    zathura_document_get_page(priv->zathura->document, manga_point.index), 
-				    *manga_number_point_to_rectangle(&manga_point));
-
+		    zathura_rectangle_t rectangle = *manga_number_point_to_rectangle(&manga_point);
 		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
-		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2, rectangle.y2);
+		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
+		    cairo_fill(cairo);
 	    }
 
     }
@@ -1031,13 +1034,12 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       }
 
       fclose(numbers);
-
       manga_number_point manga_point;
       manga_point.index = priv->manga_number_list.count + 1;
-      manga_point.pos.x1 = button->x - priv->manga_number_list.font_size / 2.0;
-      manga_point.pos.y1 = button->y - priv->manga_number_list.font_size / 2.0;
-      manga_point.pos.x2 = button->x + priv->manga_number_list.font_size / 2.0;
-      manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0;
+      manga_point.pos.x1 = button->x - priv->manga_number_list.font_size / 2.0 * page_zoom;
+      manga_point.pos.y1 = button->y - priv->manga_number_list.font_size / 2.0 * page_zoom;
+      manga_point.pos.x2 = button->x + priv->manga_number_list.font_size / 2.0 * page_zoom;
+      manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0 * page_zoom;
       manga_point.page = zathura_page_get_index(priv->page) + 1;
 
       manga_normalize_pos(&manga_point, page_zoom);
@@ -1057,8 +1059,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 		      priv->mouse.selection.x2, 
 		      priv->mouse.selection.y2);*/
 
+    	return true;
     } 
-    return true;
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
     if ( priv->manga_number_list.count > 0){
