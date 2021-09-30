@@ -939,6 +939,8 @@ cb_zathura_page_widget_button_release_event(GtkWidget* widget, GdkEventButton* b
   if (button->type != GDK_BUTTON_RELEASE) {
     return false;
   }
+  return false; // don't clear squares (use them as pointers for manga numeration).
+
 
   const int oldx = button->x;
   const int oldy = button->y;
