@@ -258,8 +258,8 @@ zathura_page_widget_init(ZathuraPage* widget)
   gtk_widget_add_events(GTK_WIDGET(widget), event_mask);
 }
 
-
-void manga_normalize_pos(manga_number_point* point, double zoom)
+manga_number_point*
+manga_normalize_pos(manga_number_point* point, double zoom)
 {
 	point->pos.x1 /= zoom;
 	point->pos.x2 /= zoom;
@@ -270,6 +270,8 @@ void manga_normalize_pos(manga_number_point* point, double zoom)
 		point->pos.x1 = 0;
 	if (point->pos.y1 < 0)
 		point->pos.y1 = 0;
+
+	return point;
 }
 
 zathura_rectangle_t*
@@ -723,8 +725,11 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 		    zathura_rectangle_t rectangle = *manga_number_point_to_rectangle(&manga_point);
 		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
 		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
-		    cairo_fill(cairo);
+
+	    	    cairo_fill(cairo);
+//		    redraw_rect(ZATHURA_PAGE(priv->page), &rectangle);
 	    }
+
 
     }
     /* draw search results */
@@ -1016,8 +1021,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
-
-	  // Writing click coordinates to file
+  // Writing click coordinates to file
       FILE *numbers = fopen("numbers", "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
@@ -1042,9 +1046,14 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0 * page_zoom;
       manga_point.page = zathura_page_get_index(priv->page) + 1;
 
+
+      zathura_rectangle_t* tmp = manga_number_point_to_rectangle(&manga_point);
+
       manga_normalize_pos(&manga_point, page_zoom);
       manga_add_new_number_point(priv, manga_point);
 
+      
+      redraw_rect(ZATHURA_PAGE(widget), tmp);
 //    start the selection
       priv->mouse.selection_basepoint.x = button->x;
       priv->mouse.selection_basepoint.y = button->y;
@@ -1054,10 +1063,10 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
-      /*printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
+      printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
 		      priv->mouse.selection.y1, 
 		      priv->mouse.selection.x2, 
-		      priv->mouse.selection.y2);*/
+		      priv->mouse.selection.y2);
 
     	return true;
     } 
@@ -1132,9 +1141,8 @@ cb_zathura_page_widget_button_release_event(GtkWidget* widget, GdkEventButton* b
     }
   } else {
     redraw_rect(ZATHURA_PAGE(widget), &priv->mouse.selection);
-
     zathura_rectangle_t tmp = priv->mouse.selection;
-
+   
     tmp.x1 /= scale;
     tmp.x2 /= scale;
     tmp.y1 /= scale;
@@ -1202,6 +1210,7 @@ cb_zathura_page_widget_motion_notify(GtkWidget* widget, GdkEventMotion* event)
   if (event->x < priv->mouse.selection_basepoint.x) {
     tmp.x1 = event->x;
     tmp.x2 = priv->mouse.selection_basepoint.x;
+
   } else {
     tmp.x2 = event->x;
     tmp.x1 = priv->mouse.selection_basepoint.x;
@@ -1214,6 +1223,17 @@ cb_zathura_page_widget_motion_notify(GtkWidget* widget, GdkEventMotion* event)
     tmp.y2 = event->y;
   }
 
+ /* printf("motion: priv->mouse.selection: {x1: %f, y1: %f, x2: %f, y2: %f}\n", priv->mouse.selection.x1,
+   priv->mouse.selection.y1,
+priv->mouse.selection.x2,
+priv->mouse.selection.y2);
+
+  printf("motion: priv->mouse.selection: {x1: %f, y1: %f, x2: %f, y2: %f}\n", tmp.x1,
+   tmp.y1,
+tmp.x2,
+tmp.y2);
+
+*/
   redraw_rect(ZATHURA_PAGE(widget), &priv->mouse.selection);
   redraw_rect(ZATHURA_PAGE(widget), &tmp);
   priv->mouse.selection = tmp;
