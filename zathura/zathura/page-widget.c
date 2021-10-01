@@ -250,7 +250,8 @@ zathura_page_widget_init(ZathuraPage* widget)
   priv->mouse.selection_basepoint.y = -1;
 
   priv->manga_number_list.font_family = "Helvetica-Bold";
-  priv->manga_number_list.font_size = 100;
+  
+  priv->manga_number_list.font_size = 35;
   priv->manga_number_list.count = 0; 
 
   const unsigned int event_mask = GDK_BUTTON_PRESS_MASK |
