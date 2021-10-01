@@ -15,6 +15,7 @@
 #include "utils.h"
 #include "shortcuts.h"
 #include "zathura.h"
+#include "document.h"
 
 //extra
 #include <stdio.h>
@@ -259,6 +260,60 @@ zathura_page_widget_init(ZathuraPage* widget)
   gtk_widget_add_events(GTK_WIDGET(widget), event_mask);
 }
 
+
+void
+manga_remove_last_line_from_file(char* file_name)
+{
+	puts("----------\nopening file...\n");
+
+	FILE* numbers_file = fopen(file_name, "r");
+	if( numbers_file == NULL)
+	{
+		perror ("\033[0;31mError\033[0;0m: can not open file.\n");
+		return;
+	}
+	
+	puts("file opened.\n");
+
+	fseek(numbers_file, 0, SEEK_END);
+
+	int buffer_size = ftell(numbers_file);
+	printf("file buffer size: %d\n",buffer_size);
+	rewind(numbers_file);
+
+
+	char* buffer = (char*)malloc(sizeof(char)*(buffer_size + 1));
+
+	fread(buffer, 1, buffer_size, numbers_file);
+
+	printf("file content: %s\n", buffer);
+
+	fclose(numbers_file);
+
+	for ( int i = buffer_size - 2; i > 0; i--)
+	{
+		if (buffer[i] == '\n')
+		{
+			buffer_size = i+1;
+			break;
+		}
+	}
+
+	numbers_file = fopen(file_name, "w");
+
+	if( numbers_file == NULL)
+	{
+		perror ("\033[0;31mError\033[0;0m: can not open file.\n");
+		return;
+	}
+			fwrite(buffer, 1, buffer_size, numbers_file);
+
+
+	fclose(numbers_file);
+	free(buffer);
+
+}
+
 manga_number_point*
 manga_normalize_pos(manga_number_point* point, double zoom)
 {
@@ -301,7 +356,10 @@ manga_get_last_point(ZathuraPagePrivate* priv)
 
 int manga_remove_last_number_point(ZathuraPagePrivate* priv)
 {
-	return priv->manga_number_list.count--;
+	if (priv->manga_number_list.count == 0)
+		return 0;
+	else 
+		return --priv->manga_number_list.count;
 	//TODO:Need to be fixed to clear memory
 }
 
@@ -1015,6 +1073,9 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   ZathuraPage* page        = ZATHURA_PAGE(widget);
   ZathuraPagePrivate* priv = zathura_page_widget_get_instance_private(page);
+  zathura_document_t* document = zathura_page_get_document(priv->page);
+  char* file_name = malloc(sizeof(char)*50);
+  sprintf(file_name, "%s_%s", "numbers", zathura_document_get_opened_time(document));
 
   if (girara_callback_view_button_press_event(widget, button, priv->zathura->ui.session) == true) {
     return true;
@@ -1022,8 +1083,9 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
-  // Writing click coordinates to file
-      FILE *numbers = fopen("numbers", "a");
+	    
+    // Writing click coordinates to file
+      FILE *numbers = fopen(file_name, "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
       printf("zoom is: %f", page_zoom);
@@ -1074,11 +1136,16 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
     if ( priv->manga_number_list.count > 0){
+
+	manga_remove_last_line_from_file(file_name);
+	
 	int count = manga_remove_last_number_point(priv);
-	if ( priv->manga_number_list.list[count].index == zathura_page_get_index(priv->page) + 1)
-		redraw_rect(ZATHURA_PAGE(priv->page),
+	manga_normalize_pos(&priv->manga_number_list.list[count],
+			1.0 / zathura_document_get_zoom(priv->zathura->document)
+			);	
+	redraw_rect(ZATHURA_PAGE(widget),
 				manga_number_point_to_rectangle(&priv->manga_number_list.list[count])
-			   );
+		   );
 
 	}
     return true;
