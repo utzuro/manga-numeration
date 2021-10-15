@@ -107,17 +107,6 @@ zathura_document_set_opend_time(zathura_document_t* doccument)
 	  sprintf(doccument->opened_time, "now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 }
 
-char*
-zathura_document_get_opend_time(zathura_document_t* document)
-{
-	if (document == NULL)
-	{
-		return NULL;
-	}
-
-	return document->opened_time;
-}
-
 
 zathura_document_t*
 zathura_document_open(zathura_t* zathura, const char* path, const char* uri,

@@ -1073,9 +1073,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   ZathuraPage* page        = ZATHURA_PAGE(widget);
   ZathuraPagePrivate* priv = zathura_page_widget_get_instance_private(page);
-  zathura_document_t* document = zathura_page_get_document(priv->page);
-  char* file_name = malloc(sizeof(char)*50);
-  sprintf(file_name, "%s_%s", "numbers", zathura_document_get_opened_time(document));
+  //zathura_document_t* document = zathura_page_get_document(priv->page);
+  //sprintf(file_name, "%s_%s", "numbers", zathura_document_get_opened_time(document));
 
   if (girara_callback_view_button_press_event(widget, button, priv->zathura->ui.session) == true) {
     return true;
@@ -1085,7 +1084,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
     if (button->type == GDK_BUTTON_PRESS) {
 	    
     // Writing click coordinates to file
-      FILE *numbers = fopen(file_name, "a");
+      FILE *numbers = fopen("numbers", "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
       printf("zoom is: %f", page_zoom);
@@ -1137,7 +1136,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
     /** Remove Number **/
     if ( priv->manga_number_list.count > 0){
 
-	manga_remove_last_line_from_file(file_name);
+	manga_remove_last_line_from_file("numbers");
 	
 	int count = manga_remove_last_number_point(priv);
 	manga_normalize_pos(&priv->manga_number_list.list[count],

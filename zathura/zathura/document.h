@@ -23,14 +23,6 @@ zathura_document_t* zathura_document_open(zathura_t* zathura,
     const char* path, const char *uri, const char* password, zathura_error_t*
     error);
 /**
- * Returns the data when document was opened
- *
- * @param document The document
- * @return The data when document was opened
- */
-ZATHURA_PLUGIN_API char* zathura_document_get_opened_time(zathura_document_t*);
-
-/**
  * Free the document
  *
  * @param document
