@@ -1095,15 +1095,12 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       FILE *numbers = fopen("numbers", "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
-      printf("zoom is: %f", page_zoom);
       /* log click for testing purposes */
 
       if (numbers == NULL) {
         printf("\nFile wasn't opened correctly\n");
       }
       else {
-        printf( "\nFile was opened correctly\n");
-        printf("%u", zathura_page_get_index(priv->page)+1);
         fprintf(numbers, "%u %f %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y, page_zoom);
       }
 
@@ -1121,8 +1118,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
       manga_normalize_pos(&manga_point, page_zoom);
       manga_add_new_number_point(priv, manga_point);
-
-      
+     tmp->x1 -= priv->manga_number_list.font_size; 
+     tmp->y1 -= priv->manga_number_list.font_size; 
       redraw_rect(ZATHURA_PAGE(widget), tmp);
 //    start the selection
       priv->mouse.selection_basepoint.x = button->x;
@@ -1133,12 +1130,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
-      printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
-		      priv->mouse.selection.y1, 
-		      priv->mouse.selection.x2, 
-		      priv->mouse.selection.y2);
-
-    	return true;
+      
+      return true;
     } 
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
