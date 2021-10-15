@@ -765,31 +765,39 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 	    printf("Start drawing rectangles...\n");
 	GdkRGBA color;
 	color.red = 135.0/250.0;
-       	color.green = 206.0/250.0;
+  	color.green = 206.0/250.0;
 	color.blue = 250.0/250.0;
 	color.alpha = 1.0;
 
-	    for (int i = 0; i < priv->manga_number_list.count; i++)
-	    {
+    	set_font_from_property(cairo, priv->zathura, CAIRO_FONT_WEIGHT_BOLD);
+	
+    	for (int i = 0; i < priv->manga_number_list.count; i++)
+    	{
 			
-		    printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
+		 /*   printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
 				priv->manga_number_list.list[i].pos.y1,
 			       	priv->manga_number_list.list[i].pos.x2,
 				priv->manga_number_list.list[i].pos.y2);
-
+*/
 
 		    manga_number_point manga_point = priv->manga_number_list.list[i];
 		    manga_normalize_pos(&manga_point, 1.0 / zathura_document_get_zoom(priv->zathura->document));
 		    
 		    zathura_rectangle_t rectangle = *manga_number_point_to_rectangle(&manga_point);
+////---------------------------------------------------
 		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
-		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
-
-	    	    cairo_fill(cairo);
-//		    redraw_rect(ZATHURA_PAGE(priv->page), &rectangle);
+		    //cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
+	    	    //cairo_fill(cairo);
+		    //cairo_set_source_rgba(cairo, 0, 0, 0, 1);
+		    cairo_set_font_size(cairo,priv->manga_number_list.font_size * zathura_document_get_zoom(priv->zathura->document));
+		    cairo_move_to(cairo, rectangle.x1 + priv->manga_number_list.font_size,
+				   rectangle.y1 + priv->manga_number_list.font_size);
+	            char* str = malloc(5 * sizeof(char));
+		    sprintf(str, "%d", manga_point.index);
+		    cairo_show_text(cairo, str); 
+		    g_free(str);
+		    //------------------------------------------
 	    }
-
-
     }
     /* draw search results */
     if (priv->search.list != NULL && priv->search.draw == true) {
