@@ -278,15 +278,12 @@ manga_remove_last_line_from_file(char* file_name)
 	fseek(numbers_file, 0, SEEK_END);
 
 	int buffer_size = ftell(numbers_file);
-	printf("file buffer size: %d\n",buffer_size);
 	rewind(numbers_file);
 
 
 	char* buffer = (char*)malloc(sizeof(char)*(buffer_size + 1));
 
 	fread(buffer, 1, buffer_size, numbers_file);
-
-	printf("file content: %s\n", buffer);
 
 	fclose(numbers_file);
 
@@ -365,7 +362,7 @@ int manga_remove_last_number_point(ZathuraPagePrivate* priv)
 
 int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_point)
 {
-	printf("adding new point...\n");
+	/* printf("adding new point...\n"); */
 	manga_number_point* new_point_list;
 	new_point_list = (manga_number_point *) malloc( (priv->manga_number_list.count + 1) * sizeof(manga_number_point));
 
@@ -383,15 +380,6 @@ int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_
 
 	new_point_list = NULL;
 
-	for(int i = 0; i < priv->manga_number_list.count; i++)
-	{
-		printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
-				priv->manga_number_list.list[i].pos.y1,
-			       	priv->manga_number_list.list[i].pos.x2,
-				priv->manga_number_list.list[i].pos.y2);
-
-
-	}
 	return 0;
 }
 
@@ -762,7 +750,7 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 
     /*Draw manga marks#*/
     if (priv->manga_number_list.count > 0){
-	    printf("Start drawing rectangles...\n");
+	    /* printf("Start drawing rectangles...\n"); */
 	GdkRGBA color;
 	color.red = 135.0/250.0;
        	color.green = 206.0/250.0;
@@ -772,11 +760,10 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 	    for (int i = 0; i < priv->manga_number_list.count; i++)
 	    {
 			
-		    printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
-				priv->manga_number_list.list[i].pos.y1,
-			       	priv->manga_number_list.list[i].pos.x2,
-				priv->manga_number_list.list[i].pos.y2);
-
+		    /* printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1, */
+				/* priv->manga_number_list.list[i].pos.y1, */
+			       	/* priv->manga_number_list.list[i].pos.x2, */
+				/* priv->manga_number_list.list[i].pos.y2); */
 
 		    manga_number_point manga_point = priv->manga_number_list.list[i];
 		    manga_normalize_pos(&manga_point, 1.0 / zathura_document_get_zoom(priv->zathura->document));
@@ -1065,9 +1052,6 @@ zathura_page_widget_link_get(ZathuraPage* widget, unsigned int index)
 static gboolean
 cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* button)
 {
-  printf("GTK event is: %d\n", button->state);
-  printf("GTK button send_event: %d\n",button->send_event);
-  printf("GTK button statement: %d\n",button->type);
   g_return_val_if_fail(widget != NULL, false);
   g_return_val_if_fail(button != NULL, false);
 
@@ -1087,15 +1071,10 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       FILE *numbers = fopen("numbers", "a");
       double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
 
-      printf("zoom is: %f", page_zoom);
-      /* log click for testing purposes */
-
       if (numbers == NULL) {
         printf("\nFile wasn't opened correctly\n");
       }
       else {
-        printf( "\nFile was opened correctly\n");
-        printf("%u", zathura_page_get_index(priv->page)+1);
         fprintf(numbers, "%u %f %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y, page_zoom);
       }
 
@@ -1125,12 +1104,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
-      printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
-		      priv->mouse.selection.y1, 
-		      priv->mouse.selection.x2, 
-		      priv->mouse.selection.y2);
 
-    	return true;
+      return true;
     } 
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
