@@ -62,6 +62,10 @@ def create_marks_pdf(output, marks):
     bubble_number = 0
     page_number = 1
     for mark in marks:
+<<<<<<< HEAD
+=======
+        mark = mark.replace(',', '.')
+>>>>>>> stg
         parameters = mark.split(' ')
         zoom = double(parameters[3])
         x = double(parameters[1]) * alpha / zoom

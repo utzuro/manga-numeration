@@ -22,7 +22,6 @@
 zathura_document_t* zathura_document_open(zathura_t* zathura,
     const char* path, const char *uri, const char* password, zathura_error_t*
     error);
-
 /**
  * Free the document
  *
@@ -413,5 +412,7 @@ ZATHURA_PLUGIN_API zathura_error_t zathura_document_attachment_save(zathura_docu
  * @return List of document information entries or NULL if information could not be retrieved
  */
 ZATHURA_PLUGIN_API girara_list_t* zathura_document_get_information(zathura_document_t* document, zathura_error_t* error);
+
+
 
 #endif // DOCUMENT_H

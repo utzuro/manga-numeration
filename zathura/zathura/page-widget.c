@@ -15,6 +15,7 @@
 #include "utils.h"
 #include "shortcuts.h"
 #include "zathura.h"
+#include "document.h"
 
 //extra
 #include <stdio.h>
@@ -250,7 +251,12 @@ zathura_page_widget_init(ZathuraPage* widget)
   priv->mouse.selection_basepoint.y = -1;
 
   priv->manga_number_list.font_family = "Helvetica-Bold";
+<<<<<<< HEAD
   priv->manga_number_list.font_size = 100;
+=======
+  
+  priv->manga_number_list.font_size = 35;
+>>>>>>> stg
   priv->manga_number_list.count = 0; 
 
   const unsigned int event_mask = GDK_BUTTON_PRESS_MASK |
@@ -259,7 +265,62 @@ zathura_page_widget_init(ZathuraPage* widget)
 }
 
 
+<<<<<<< HEAD
 void manga_normalize_pos(manga_number_point* point, double zoom)
+=======
+void
+manga_remove_last_line_from_file(char* file_name)
+{
+	puts("----------\nopening file...\n");
+
+	FILE* numbers_file = fopen(file_name, "r");
+	if( numbers_file == NULL)
+	{
+		perror ("\033[0;31mError\033[0;0m: can not open file.\n");
+		return;
+	}
+	
+	puts("file opened.\n");
+
+	fseek(numbers_file, 0, SEEK_END);
+
+	int buffer_size = ftell(numbers_file);
+	rewind(numbers_file);
+
+
+	char* buffer = (char*)malloc(sizeof(char)*(buffer_size + 1));
+
+	fread(buffer, 1, buffer_size, numbers_file);
+
+	fclose(numbers_file);
+
+	for ( int i = buffer_size - 2; i > 0; i--)
+	{
+		if (buffer[i] == '\n')
+		{
+			buffer_size = i+1;
+			break;
+		}
+	}
+
+	numbers_file = fopen(file_name, "w");
+
+	if( numbers_file == NULL)
+	{
+		perror ("\033[0;31mError\033[0;0m: can not open file.\n");
+		return;
+	}
+			fwrite(buffer, 1, buffer_size, numbers_file);
+
+
+	fclose(numbers_file);
+	free(buffer);
+
+}
+
+manga_number_point*
+manga_normalize_pos(manga_number_point* point, double zoom)
+>>>>>>> stg
 {
 	point->pos.x1 /= zoom;
 	point->pos.x2 /= zoom;
@@ -270,6 +331,11 @@ void manga_normalize_pos(manga_number_point* point, double zoom)
 		point->pos.x1 = 0;
 	if (point->pos.y1 < 0)
 		point->pos.y1 = 0;
+<<<<<<< HEAD
+=======
+
+	return point;
+>>>>>>> stg
 }
 
 zathura_rectangle_t*
@@ -298,13 +364,24 @@ manga_get_last_point(ZathuraPagePrivate* priv)
 
 int manga_remove_last_number_point(ZathuraPagePrivate* priv)
 {
+<<<<<<< HEAD
 	return priv->manga_number_list.count--;
+=======
+	if (priv->manga_number_list.count == 0)
+		return 0;
+	else 
+		return --priv->manga_number_list.count;
+>>>>>>> stg
 	//TODO:Need to be fixed to clear memory
 }
 
 int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_point)
 {
+<<<<<<< HEAD
 	printf("adding new point...\n");
+=======
+	/* printf("adding new point...\n"); */
+>>>>>>> stg
 	manga_number_point* new_point_list;
 	new_point_list = (manga_number_point *) malloc( (priv->manga_number_list.count + 1) * sizeof(manga_number_point));
 
@@ -322,6 +399,7 @@ int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_
 
 	new_point_list = NULL;
 
+<<<<<<< HEAD
 	for(int i = 0; i < priv->manga_number_list.count; i++)
 	{
 		printf("point[%d]: {x1: %f, y1: %f, x2: %f, y2: %f}\n", i + 1, priv->manga_number_list.list[i].pos.x1,
@@ -331,6 +409,8 @@ int manga_add_new_number_point(ZathuraPagePrivate* priv, manga_number_point new_
 
 
 	}
+=======
+>>>>>>> stg
 	return 0;
 }
 
@@ -701,6 +781,7 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 
     /*Draw manga marks#*/
     if (priv->manga_number_list.count > 0){
+<<<<<<< HEAD
 	    printf("Start drawing rectangles...\n");
 	GdkRGBA color;
 	color.red = 135.0/250.0;
@@ -717,15 +798,45 @@ zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo)
 				priv->manga_number_list.list[i].pos.y2);
 
 
+=======
+	    /* printf("Start drawing rectangles...\n"); */
+	GdkRGBA color;
+	color.red = 135.0/250.0;
+  	color.green = 206.0/250.0;
+	color.blue = 250.0/250.0;
+	color.alpha = 1.0;
+
+    	set_font_from_property(cairo, priv->zathura, CAIRO_FONT_WEIGHT_BOLD);
+	
+    	for (int i = 0; i < priv->manga_number_list.count; i++)
+    	{
+>>>>>>> stg
 		    manga_number_point manga_point = priv->manga_number_list.list[i];
 		    manga_normalize_pos(&manga_point, 1.0 / zathura_document_get_zoom(priv->zathura->document));
 		    
 		    zathura_rectangle_t rectangle = *manga_number_point_to_rectangle(&manga_point);
+<<<<<<< HEAD
 		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
 		    cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
 		    cairo_fill(cairo);
 	    }
 
+=======
+////---------------------------------------------------
+		    cairo_set_source_rgba(cairo, color.red, color.green, color.blue, transparency);
+		    //cairo_rectangle(cairo, rectangle.x1, rectangle.y1, rectangle.x2 - rectangle.x1, rectangle.y2 - rectangle.y1);
+	    	    //cairo_fill(cairo);
+		    //cairo_set_source_rgba(cairo, 0, 0, 0, 1);
+		    cairo_set_font_size(cairo,priv->manga_number_list.font_size * zathura_document_get_zoom(priv->zathura->document));
+		    cairo_move_to(cairo, rectangle.x1 + priv->manga_number_list.font_size,
+				   rectangle.y1 + priv->manga_number_list.font_size);
+	            char* str = malloc(5 * sizeof(char));
+		    sprintf(str, "%d", manga_point.index);
+		    cairo_show_text(cairo, str); 
+		    g_free(str);
+		    //------------------------------------------
+	    }
+>>>>>>> stg
     }
     /* draw search results */
     if (priv->search.list != NULL && priv->search.draw == true) {
@@ -1009,6 +1120,8 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   ZathuraPage* page        = ZATHURA_PAGE(widget);
   ZathuraPagePrivate* priv = zathura_page_widget_get_instance_private(page);
+  //zathura_document_t* document = zathura_page_get_document(priv->page);
+  //sprintf(file_name, "%s_%s", "numbers", zathura_document_get_opened_time(document));
 
   if (girara_callback_view_button_press_event(widget, button, priv->zathura->ui.session) == true) {
     return true;
@@ -1016,6 +1129,7 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
 
   if (button->button == GDK_BUTTON_PRIMARY) { /* left click */
     if (button->type == GDK_BUTTON_PRESS) {
+<<<<<<< HEAD
 
 	  // Writing click coordinates to file
       FILE *numbers = fopen("numbers", "a");
@@ -1024,12 +1138,22 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       printf("zoom is: %f", page_zoom);
       /* log click for testing purposes */
 
+=======
+	    
+    // Writing click coordinates to file
+      FILE *numbers = fopen("numbers", "a");
+      double page_zoom = zathura_document_get_zoom(priv->zathura->document);  
+
+>>>>>>> stg
       if (numbers == NULL) {
         printf("\nFile wasn't opened correctly\n");
       }
       else {
+<<<<<<< HEAD
         printf( "\nFile was opened correctly\n");
         printf("%u", zathura_page_get_index(priv->page)+1);
+=======
+>>>>>>> stg
         fprintf(numbers, "%u %f %f %f\n", zathura_page_get_index(priv->page)+1, button->x, button->y, page_zoom);
       }
 
@@ -1042,9 +1166,20 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       manga_point.pos.y2 = button->y + priv->manga_number_list.font_size / 2.0 * page_zoom;
       manga_point.page = zathura_page_get_index(priv->page) + 1;
 
+<<<<<<< HEAD
       manga_normalize_pos(&manga_point, page_zoom);
       manga_add_new_number_point(priv, manga_point);
 
+=======
+
+      zathura_rectangle_t* tmp = manga_number_point_to_rectangle(&manga_point);
+
+      manga_normalize_pos(&manga_point, page_zoom);
+      manga_add_new_number_point(priv, manga_point);
+     tmp->x1 -= priv->manga_number_list.font_size; 
+     tmp->y1 -= priv->manga_number_list.font_size; 
+      redraw_rect(ZATHURA_PAGE(widget), tmp);
+>>>>>>> stg
 //    start the selection
       priv->mouse.selection_basepoint.x = button->x;
       priv->mouse.selection_basepoint.y = button->y;
@@ -1054,21 +1189,39 @@ cb_zathura_page_widget_button_press_event(GtkWidget* widget, GdkEventButton* but
       priv->mouse.selection.y1 = button->y;
       priv->mouse.selection.x2 = button->x;
       priv->mouse.selection.y2 = button->y;
+<<<<<<< HEAD
       /*printf("mouse: x1:%f, y1:%f, x2:%f, ,y2:%f\n",priv->mouse.selection.x1,
 		      priv->mouse.selection.y1, 
 		      priv->mouse.selection.x2, 
 		      priv->mouse.selection.y2);*/
 
     	return true;
+=======
+
+      return true;
+>>>>>>> stg
     } 
   } else if (gdk_event_triggers_context_menu((GdkEvent*) button) == TRUE && button->type == GDK_BUTTON_PRESS) { /* right click */
     /** Remove Number **/
     if ( priv->manga_number_list.count > 0){
+<<<<<<< HEAD
 	int count = manga_remove_last_number_point(priv);
 	if ( priv->manga_number_list.list[count].index == zathura_page_get_index(priv->page) + 1)
 		redraw_rect(ZATHURA_PAGE(priv->page),
 				manga_number_point_to_rectangle(&priv->manga_number_list.list[count])
 			   );
+=======
+
+	manga_remove_last_line_from_file("numbers");
+	
+	int count = manga_remove_last_number_point(priv);
+	manga_normalize_pos(&priv->manga_number_list.list[count],
+			1.0 / zathura_document_get_zoom(priv->zathura->document)
+			);	
+	redraw_rect(ZATHURA_PAGE(widget),
+				manga_number_point_to_rectangle(&priv->manga_number_list.list[count])
+		   );
+>>>>>>> stg
 
 	}
     return true;
@@ -1132,9 +1285,8 @@ cb_zathura_page_widget_button_release_event(GtkWidget* widget, GdkEventButton* b
     }
   } else {
     redraw_rect(ZATHURA_PAGE(widget), &priv->mouse.selection);
-
     zathura_rectangle_t tmp = priv->mouse.selection;
-
+   
     tmp.x1 /= scale;
     tmp.x2 /= scale;
     tmp.y1 /= scale;
@@ -1202,6 +1354,7 @@ cb_zathura_page_widget_motion_notify(GtkWidget* widget, GdkEventMotion* event)
   if (event->x < priv->mouse.selection_basepoint.x) {
     tmp.x1 = event->x;
     tmp.x2 = priv->mouse.selection_basepoint.x;
+
   } else {
     tmp.x2 = event->x;
     tmp.x1 = priv->mouse.selection_basepoint.x;
@@ -1214,6 +1367,17 @@ cb_zathura_page_widget_motion_notify(GtkWidget* widget, GdkEventMotion* event)
     tmp.y2 = event->y;
   }
 
+ /* printf("motion: priv->mouse.selection: {x1: %f, y1: %f, x2: %f, y2: %f}\n", priv->mouse.selection.x1,
+   priv->mouse.selection.y1,
+priv->mouse.selection.x2,
+priv->mouse.selection.y2);
+
+  printf("motion: priv->mouse.selection: {x1: %f, y1: %f, x2: %f, y2: %f}\n", tmp.x1,
+   tmp.y1,
+tmp.x2,
+tmp.y2);
+
+*/
   redraw_rect(ZATHURA_PAGE(widget), &priv->mouse.selection);
   redraw_rect(ZATHURA_PAGE(widget), &tmp);
   priv->mouse.selection = tmp;
