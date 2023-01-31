@@ -57,8 +57,8 @@ def merge_pdfs(original, output, mark):
 
 def create_marks_pdf(output, marks):
     canvas = Canvas(output, pagesize=A4)
-    alpha = 0.163716   # For converting original coordination system to mm
-    max_height = 185
+    alpha = 0.15 # For converting original coordination system to mm
+    max_height = 180 #185
     bubble_number = 0
     page_number = 1
     for mark in marks:
@@ -80,9 +80,9 @@ def create_marks_pdf(output, marks):
 
 
 if __name__ == '__main__':
-    pdf_path = 'test.pdf'
+    pdf_path = 'temp.pdf'
     mark_path = 'mark.pdf'
-    output_path = 'test_output.pdf'
+    output_path = 'temp_output.pdf'
     coordinates_path = "numbers"
     numeric_pdf_path = ""
     get_number_of_pages(pdf_path)
