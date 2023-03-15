@@ -57,16 +57,17 @@ def merge_pdfs(original, output, mark):
 
 def create_marks_pdf(output, marks):
     canvas = Canvas(output, pagesize=A4)
-    alpha = 0.15 # For converting original coordination system to mm
-    max_height = 180 #185
+    # h: 1300, w: 1000
+    alpha = 0.15  # For converting original coordination system to mm
+    max_height = 195  # shojo: 180 # zero: 195
     bubble_number = 0
     page_number = 1
     for mark in marks:
         mark = mark.replace(',', '.')
         parameters = mark.split(' ')
         zoom = double(parameters[3])
-        x = double(parameters[1]) * alpha / zoom
-        y = max_height - (double(parameters[2]) * alpha) / zoom
+        x = double(parameters[1]) * alpha / zoom + 4
+        y = max_height - (double(parameters[2]) * alpha) / zoom + 13
 
         if page_number < int(parameters[0]):
             page_number = int(parameters[0])
