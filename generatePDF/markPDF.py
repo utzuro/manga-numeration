@@ -18,6 +18,10 @@ INPUT_PATH = 'temp.pdf'
 OUTPUT_PATH = 'temp_output.pdf'
 COORDINATES_PATH = "coordinates.txt"
 
+# Define constants for conversion
+ALPHA = 0.307  # For converting original coordination system to mm
+SCALE = 0.50  # For scaling marks
+
 
 def logger_thread_func(log_queue):
     """Helper function for logger thread"""
@@ -76,20 +80,19 @@ def read_coordinates(txt_path: str) -> list[str]:
         return content
 
 
-def create_marks_pdf(output_path: str, marks: list[str]):
-    """Create PDF file with marks on separate page for every mark"""
+def create_marks_pdf(output_path: str, marks: list[str], size: tuple[int, int]):
+    print("Got size: ", size)
+    """Generate empty PDF file with marks on it"""
     canvas = Canvas(output_path, pagesize=A4)
-    # h: 1300, w: 1000
-    alpha = 0.15  # For converting original coordination system to mm
-    max_height = 180  # shojo: 180 # zero: 195
+    height, width = float(size[0])*SCALE, float(size[1])*SCALE
     bubble_number = 0
     page_number = 1
     for mark in marks:
         mark = mark.replace(',', '.')
         parameters = mark.split(' ')
         zoom = double(parameters[3])
-        x = double(parameters[1]) * alpha / zoom + 4
-        y = max_height - (double(parameters[2]) * alpha) / zoom + 13
+        x = double(parameters[1]) * ALPHA / zoom
+        y = height - (double(parameters[2]) * ALPHA) / zoom
 
         if page_number < int(parameters[0]):
             page_number = int(parameters[0])
@@ -163,10 +166,19 @@ def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
     return True, input_page_count, coordinates
 
 
+def get_page_size(pdf_path: str) -> tuple[int, int]:
+    """Return size of input PDF file in mm"""
+    with open(pdf_path, 'rb') as f:
+        pdf = PdfFileReader(f)
+        page = pdf.getPage(0)
+        return page.mediaBox[2], page.mediaBox[3]
+
+
 def execute(coordinates: list[str]):
     """Generate marks PDF file and draw marks on original PDF file"""
     try:
-        create_marks_pdf(MARKS_PATH, coordinates)
+        size = get_page_size(INPUT_PATH)
+        create_marks_pdf(MARKS_PATH, coordinates, size)
         draw_marks(INPUT_PATH, OUTPUT_PATH, MARKS_PATH)
 
     except Exception as e:
