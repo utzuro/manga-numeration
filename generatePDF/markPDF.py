@@ -164,6 +164,7 @@ def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
 
 
 def execute(coordinates: list[str]):
+    """Generate marks PDF file and draw marks on original PDF file"""
     try:
         create_marks_pdf(MARKS_PATH, coordinates)
         draw_marks(INPUT_PATH, OUTPUT_PATH, MARKS_PATH)
