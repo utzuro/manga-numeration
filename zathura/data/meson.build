@@ -17,9 +17,9 @@ if rsvg_convert.found()
 endif
 
 i18n = import('i18n')
-podir = join_paths(meson.source_root(), 'po')
+podir = join_paths(meson.project_source_root(), 'po')
 
-desktop = i18n.merge_file('desktop',
+desktop = i18n.merge_file(
   input: 'org.pwmt.zathura.desktop.in',
   output: 'org.pwmt.zathura.desktop',
   install: true,
@@ -28,7 +28,7 @@ desktop = i18n.merge_file('desktop',
   type: 'desktop'
 )
 
-appdata = i18n.merge_file('appdata',
+appdata = i18n.merge_file(
   input: 'org.pwmt.zathura.appdata.xml.in',
   output: 'org.pwmt.zathura.appdata.xml',
   install: true,
@@ -72,14 +72,14 @@ fish_completion = configure_file(
 
 bash_comp = dependency('bash-completion', required: false)
 if bash_comp.found()
-  bash_compdir = bash_comp.get_pkgconfig_variable('completionsdir')
+  bash_compdir = bash_comp.get_variable(pkgconfig: 'completionsdir')
 else
   bash_compdir = join_paths(datadir, 'bash-completion', 'completions')
 endif
 
 fish_comp = dependency('fish', required: false)
 if fish_comp.found()
-  fish_compdir = fish_comp.get_pkgconfig_variable('completionsdir')
+  fish_compdir = fish_comp.get_variable(pkgconfig: 'completionsdir')
 else
   fish_compdir = join_paths(datadir, 'fish', 'vendor_completions.d')
 endif
