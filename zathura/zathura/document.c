@@ -6,7 +6,6 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <math.h>
-#include <time.h>
 
 #include <girara/datastructures.h>
 #include <girara/utils.h>
@@ -46,7 +45,6 @@ struct zathura_document_s {
   unsigned int page_padding; /**< padding between pages */
   double position_x; /**< X adjustment */
   double position_y; /**< Y adjustment */
-  char* opened_time;
 
   /**
    * Document pages
@@ -98,15 +96,6 @@ hash_file_sha256(uint8_t* dst, const char* path)
   g_checksum_free(checksum);
   return true;
 }
-
-void
-zathura_document_set_opend_time(zathura_document_t* doccument)
-{
-	  time_t t = time(NULL);
-	  struct tm tm = *localtime(&t);
-	  sprintf(doccument->opened_time, "now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-}
-
 
 zathura_document_t*
 zathura_document_open(zathura_t* zathura, const char* path, const char* uri,
@@ -230,8 +219,6 @@ zathura_document_open(zathura_t* zathura, const char* path, const char* uri,
       document->cell_height = height;
   }
 
-  document->opened_time = malloc(sizeof(char)*100);
- zathura_document_set_opend_time(document); 
   return document;
 
 error_free:
@@ -248,11 +235,9 @@ error_free:
   }
 
   g_free(document);
+
   return NULL;
 }
-
-
-
 
 zathura_error_t
 zathura_document_free(zathura_document_t* document)
@@ -661,6 +646,14 @@ zathura_document_get_document_size(zathura_document_t* document,
 
   *width  = ncol * cell_width + (ncol - 1) * pad;
   *height = nrow * cell_height + (nrow - 1) * pad;
+}
+
+void
+zathura_document_set_cell_size(zathura_document_t* document, unsigned int cell_height,
+                               unsigned int cell_width)
+{
+  document->cell_width = cell_width;
+  document->cell_height = cell_height;
 }
 
 void

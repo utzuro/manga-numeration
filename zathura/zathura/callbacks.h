@@ -175,6 +175,15 @@ gboolean cb_sc_follow(GtkEntry* entry, void* session);
 gboolean cb_sc_display_link(GtkEntry* entry, void* session);
 
 /**
+ * Called when input has been passed to the sc_copy_link dialog
+ *
+ * @param entry The dialog inputbar
+ * @param session The girara session
+ * @return true if no error occurred and the event has been handled
+ */
+gboolean cb_sc_copy_link(GtkEntry* entry, void* session);
+
+/**
  * Emitted when file has been changed
  *
  * @param monitor The file monitor
@@ -272,5 +281,16 @@ void update_visible_pages(zathura_t* zathura);
  */
 void cb_window_update_icon(ZathuraRenderRequest* request, cairo_surface_t* surface, void* data);
 
+void cb_gesture_zoom_begin(GtkGesture* self, GdkEventSequence* sequence, void* data);
+
+void cb_gesture_zoom_scale_changed(GtkGestureZoom* self, gdouble scale, void* data);
+
+/**
+ * Clears all highlighted links when the inputbar gets closed
+ *
+ * @param GtkWidget* Inputbar widget
+ * @param data The zathura instance
+ */
+void cb_hide_links(GtkWidget* widget, gpointer data);
 
 #endif // CALLBACKS_H

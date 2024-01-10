@@ -1,21 +1,19 @@
 project('zathura', 'c',
-  version: '0.4.7',
-  meson_version: '>=0.47',
-  default_options: ['c_std=c11', 'warning_level=3'],
+  version: '0.5.4',
+  meson_version: '>=0.61',
+  default_options: ['c_std=c17', 'warning_level=3'],
 )
 
 version = meson.project_version()
 version_array = version.split('.')
 
-# Rules for so_major and so_minor:
-# Before a release perform the following checks against the last release:
-# * If a function has been removed or the paramaters of a function have changed
-#   bump SOMAJOR and set SOMINOR to 0.
-# * If any of the exported datastructures have changed in a incompatible way
-#   bump SOMAJOR and set SOMINOR to 0.
-# * If a function has been added bump SOMINOR.
-plugin_api_version = '3'
-plugin_abi_version = '4'
+# Rules for plugin API and ABI (non-exhaustive):
+# * zathura_plugin_function_t: If functions are addedd or removed or their
+#   signature changes, bump both ABI and API.
+# * zathura_plugin_definition_t: If the struct changes in an ABI-incompatible
+#   way, bump the ABI.
+plugin_api_version = '5'
+plugin_abi_version = '6'
 
 conf_data = configuration_data()
 conf_data.set('ZVMAJOR', version_array[0])
@@ -37,15 +35,23 @@ plugindir = join_paths(get_option('libdir'), 'zathura')
 
 # required dependencies
 libm = cc.find_library('m', required: false)
-girara = dependency('girara-gtk3', version: '>=0.3.3', fallback: ['girara', 'girara_dependency'])
+girara = dependency('girara-gtk3', version: '>=0.4.1', fallback: ['girara', 'girara_dependency'])
 glib = dependency('glib-2.0', version: '>=2.50')
 gio = dependency('gio-unix-2.0', required: host_machine.system() != 'windows')
 gthread = dependency('gthread-2.0', version: '>=2.50')
 gmodule = dependency('gmodule-no-export-2.0', version: '>=2.50')
 gtk3 = dependency('gtk+-3.0', version: '>=3.22')
+json_glib = dependency('json-glib-1.0')
 cairo = dependency('cairo')
+magic = cc.find_library('magic', required: true)
 
-build_dependencies = [libm, girara, glib, gio, gthread, gmodule, gtk3, cairo]
+build_dependencies = [libm, girara, glib, gio, gthread, gmodule, gtk3, cairo, magic, json_glib]
+
+if host_machine.system() == 'darwin'
+    gtk_mac_integration = dependency('gtk-mac-integration-gtk3')
+    build_dependencies += gtk_mac_integration
+endif
+
 
 # defines
 defines = [
@@ -54,6 +60,10 @@ defines = [
   '-DZATHURA_PLUGINDIR="@0@"'.format(join_paths(prefix, plugindir)),
   '-D_DEFAULT_SOURCE',
 ]
+
+if host_machine.system() == 'darwin'
+  defines += '-DGTKOSXAPPLICATION'
+endif
 
 # compile flags
 flags = [
@@ -67,7 +77,6 @@ flags = cc.get_supported_arguments(flags)
 additional_sources = []
 sqlite = dependency('sqlite3', version: '>=3.6.23', required: get_option('sqlite'))
 synctex = dependency('synctex', version: '>=1.19', required: get_option('synctex'))
-magic = cc.find_library('magic', required: get_option('magic'))
 seccomp = dependency('libseccomp', required: get_option('seccomp'))
 
 if sqlite.found()
@@ -84,11 +93,6 @@ if synctex.found()
   endif
 endif
 
-if magic.found()
-  build_dependencies += magic
-  defines += '-DWITH_MAGIC'
-endif
-
 if seccomp.found()
   build_dependencies += seccomp
   defines += '-DWITH_SECCOMP'
@@ -101,6 +105,7 @@ version_header = configure_file(
   output: 'zathura-version.h',
   configuration: conf_data
 )
+
 include_directories = [
   include_directories('.')
 ]
@@ -143,7 +148,7 @@ sources = files(
 sources += zathura_resources
 sources += additional_sources
 
-# header fiels to install
+# header files to install
 headers = files(
   'zathura/document.h',
   'zathura/links.h',
@@ -171,7 +176,7 @@ zathura = executable(
   include_directories: include_directories,
   c_args: defines + flags,
   export_dynamic: true,
-  gui_app: true
+  win_subsystem: 'windows'
 )
 install_headers(headers, subdir: 'zathura')
 
@@ -182,7 +187,7 @@ pkg.generate(
   description: 'document viewer - plugin API',
   url: 'https://pwmt.org/projects/zathura',
   version: version,
-  requires_private: ['girara-gtk3', 'cairo'],
+  requires: ['girara-gtk3', 'cairo'],
   variables: [
     'apiversion=@0@'.format(plugin_api_version),
     'abiversion=@0@'.format(plugin_abi_version),

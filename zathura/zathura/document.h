@@ -22,6 +22,7 @@
 zathura_document_t* zathura_document_open(zathura_t* zathura,
     const char* path, const char *uri, const char* password, zathura_error_t*
     error);
+
 /**
  * Free the document
  *
@@ -328,6 +329,17 @@ ZATHURA_PLUGIN_API void zathura_document_get_document_size(zathura_document_t* d
                                         unsigned int* height, unsigned int* width);
 
 /**
+ * Sets the cell height and width of the document
+ *
+ * @param[in]  document          The document instance
+ * @param[in]  cell_height       The desired cell height
+ * @param[in]  cell_width        The desired cell width
+ */
+ZATHURA_PLUGIN_API void zathura_document_set_cell_size(zathura_document_t *document,
+                                      unsigned int cell_height,
+                                      unsigned int cell_width);
+
+/**
  * Sets the layout of the pages in the document
  *
  * @param[in]  document          The document instance
@@ -412,7 +424,5 @@ ZATHURA_PLUGIN_API zathura_error_t zathura_document_attachment_save(zathura_docu
  * @return List of document information entries or NULL if information could not be retrieved
  */
 ZATHURA_PLUGIN_API girara_list_t* zathura_document_get_information(zathura_document_t* document, zathura_error_t* error);
-
-
 
 #endif // DOCUMENT_H

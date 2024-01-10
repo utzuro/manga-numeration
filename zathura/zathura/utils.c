@@ -60,7 +60,7 @@ file_valid_extension(zathura_t* zathura, const char* path)
   zathura_plugin_t* plugin = zathura_plugin_manager_get_plugin(zathura->plugins.manager, content_type);
   g_free(content_type);
 
-  return (plugin == NULL) ? false : true;
+  return plugin != NULL;
 }
 
 static void
@@ -70,17 +70,14 @@ index_element_free(void* data, GObject* UNUSED(object))
   zathura_index_element_free(element);
 }
 
-void
-document_index_build(GtkTreeModel* model, GtkTreeIter* parent,
-                     girara_tree_node_t* tree)
-{
+void document_index_build(GtkTreeModel* model, GtkTreeIter* parent, girara_tree_node_t* tree) {
   girara_list_t* list = girara_node_get_children(tree);
 
-  GIRARA_LIST_FOREACH_BODY(list, girara_tree_node_t*, node,
+  for (size_t idx = 0; idx != girara_list_size(list); ++idx) {
+    girara_tree_node_t* node               = girara_list_nth(list, idx);
     zathura_index_element_t* index_element = girara_node_get_data(node);
-
-    zathura_link_type_t type     = zathura_link_get_type(index_element->link);
-    zathura_link_target_t target = zathura_link_get_target(index_element->link);
+    zathura_link_type_t type               = zathura_link_get_type(index_element->link);
+    zathura_link_target_t target           = zathura_link_get_target(index_element->link);
 
     gchar* description = NULL;
     if (type == ZATHURA_LINK_GOTO_DEST) {
@@ -100,37 +97,32 @@ document_index_build(GtkTreeModel* model, GtkTreeIter* parent,
     if (girara_node_get_num_children(node) > 0) {
       document_index_build(model, &tree_iter, node);
     }
-  );
+  }
 }
 
-zathura_rectangle_t
-rotate_rectangle(zathura_rectangle_t rectangle, unsigned int degree, double height, double width)
-{
+zathura_rectangle_t rotate_rectangle(zathura_rectangle_t rectangle, unsigned int degree, double height, double width) {
   zathura_rectangle_t tmp;
   switch (degree) {
-    case 90:
-      tmp.x1 = height - rectangle.y2;
-      tmp.x2 = height - rectangle.y1;
-      tmp.y1 = rectangle.x1;
-      tmp.y2 = rectangle.x2;
-      break;
-    case 180:
-      tmp.x1 = width - rectangle.x2;
-      tmp.x2 = width - rectangle.x1;
-      tmp.y1 = height - rectangle.y2;
-      tmp.y2 = height - rectangle.y1;
-      break;
-    case 270:
-      tmp.x1 = rectangle.y1;
-      tmp.x2 = rectangle.y2;
-      tmp.y1 = width - rectangle.x2;
-      tmp.y2 = width - rectangle.x1;
-      break;
-    default:
-      tmp.x1 = rectangle.x1;
-      tmp.x2 = rectangle.x2;
-      tmp.y1 = rectangle.y1;
-      tmp.y2 = rectangle.y2;
+  case 90:
+    tmp.x1 = height - rectangle.y2;
+    tmp.x2 = height - rectangle.y1;
+    tmp.y1 = rectangle.x1;
+    tmp.y2 = rectangle.x2;
+    break;
+  case 180:
+    tmp.x1 = width - rectangle.x2;
+    tmp.x2 = width - rectangle.x1;
+    tmp.y1 = height - rectangle.y2;
+    tmp.y2 = height - rectangle.y1;
+    break;
+  case 270:
+    tmp.x1 = rectangle.y1;
+    tmp.x2 = rectangle.y2;
+    tmp.y1 = width - rectangle.x2;
+    tmp.y2 = width - rectangle.x1;
+    break;
+  default:
+    return rectangle;
   }
 
   return tmp;
@@ -144,7 +136,6 @@ recalc_rectangle(zathura_page_t* page, zathura_rectangle_t rectangle)
   }
 
   zathura_document_t* document = zathura_page_get_document(page);
-
   if (document == NULL) {
     goto error_ret;
   }
@@ -162,7 +153,6 @@ recalc_rectangle(zathura_page_t* page, zathura_rectangle_t rectangle)
   return tmp;
 
 error_ret:
-
   return rectangle;
 }
 
@@ -191,9 +181,7 @@ document_draw_search_results(zathura_t* zathura, bool value)
   }
 }
 
-char*
-zathura_get_version_string(zathura_t* zathura, bool markup)
-{
+char* zathura_get_version_string(zathura_t* zathura, bool markup) {
   if (zathura == NULL) {
     return NULL;
   }
@@ -204,27 +192,22 @@ zathura_get_version_string(zathura_t* zathura, bool markup)
   g_string_append(string, "zathura " ZATHURA_VERSION);
   g_string_append_printf(string, "\ngirara " GIRARA_VERSION " (runtime: %s)", girara_version());
 
-  const char* format = (markup == true) ? "\n<i>(plugin)</i> %s (%d.%d.%d) <i>(%s)</i>" : "\n(plugin) %s (%d.%d.%d) (%s)";
+  const char* format =
+      (markup == true) ? "\n<i>(plugin)</i> %s (%d.%d.%d) <i>(%s)</i>" : "\n(plugin) %s (%d.%d.%d) (%s)";
 
   /* plugin information */
   girara_list_t* plugins = zathura_plugin_manager_get_plugins(zathura->plugins.manager);
   if (plugins != NULL) {
-    GIRARA_LIST_FOREACH_BODY(plugins, zathura_plugin_t*, plugin,
-      const char* name = zathura_plugin_get_name(plugin);
+    for (size_t idx = 0; idx != girara_list_size(plugins); ++idx) {
+      zathura_plugin_t* plugin         = girara_list_nth(plugins, idx);
+      const char* name                 = zathura_plugin_get_name(plugin);
       zathura_plugin_version_t version = zathura_plugin_get_version(plugin);
-      g_string_append_printf(string, format,
-                             (name == NULL) ? "-" : name,
-                             version.major,
-                             version.minor,
-                             version.rev,
+      g_string_append_printf(string, format, (name == NULL) ? "-" : name, version.major, version.minor, version.rev,
                              zathura_plugin_get_path(plugin));
-    );
+    }
   }
 
-  char* version = string->str;
-  g_string_free(string, FALSE);
-
-  return version;
+  return g_string_free(string, FALSE);
 }
 
 GdkAtom*
@@ -311,14 +294,12 @@ running_under_wsl(void)
   return result;
 }
 
-typedef struct zathura_point_s
-{
-  unsigned int x;
-  unsigned int y;
+typedef struct zathura_point_s {
+  uintptr_t x;
+  uintptr_t y;
 } zathura_point_t;
 
-static int
-cmp_point(const void* va, const void* vb) {
+static int cmp_point(const void* va, const void* vb) {
   const zathura_point_t* a = va;
   const zathura_point_t* b = vb;
 
@@ -333,38 +314,32 @@ cmp_point(const void* va, const void* vb) {
   return a->x < b->x ? -1 : 1;
 }
 
-static unsigned int
-ufloor(double f) {
+static uintptr_t ufloor(double f) {
   return floor(f);
 }
 
-static unsigned int
-uceil(double f) {
+static uintptr_t uceil(double f) {
   return ceil(f);
 }
 
-static int
-cmp_uint(const void* vx, const void* vy) {
-  const unsigned int* x = vx;
-  const unsigned int* y = vy;
+static int cmp_uint(const void* vx, const void* vy) {
+  const uintptr_t x = (uintptr_t)vx;
+  const uintptr_t y = (uintptr_t)vy;
 
-  return *x == *y ? 0 : (*x > *y ? 1 : -1);
+  return x == y ? 0 : (x > y ? 1 : -1);
 }
 
-static int
-cmp_rectangle(const void* vr1, const void* vr2) {
+static int cmp_rectangle(const void* vr1, const void* vr2) {
   const zathura_rectangle_t* r1 = vr1;
   const zathura_rectangle_t* r2 = vr2;
 
-  return (ufloor(r1->x1) == ufloor(r2->x1) && uceil(r1->x2) == uceil(r2->x2) &&
-          ufloor(r1->y1) == ufloor(r2->y1) && uceil(r1->y2) == uceil(r2->y2))
-           ? 0
-           : -1;
+  return (ufloor(r1->x1) == ufloor(r2->x1) && uceil(r1->x2) == uceil(r2->x2) && ufloor(r1->y1) == ufloor(r2->y1) &&
+          uceil(r1->y2) == uceil(r2->y2))
+             ? 0
+             : -1;
 }
 
-
-static bool
-girara_list_append_unique(girara_list_t* l, girara_compare_function_t cmp, void* item) {
+static bool girara_list_append_unique(girara_list_t* l, girara_compare_function_t cmp, void* item) {
   if (girara_list_find(l, cmp, item) != NULL) {
     return false;
   }
@@ -373,8 +348,7 @@ girara_list_append_unique(girara_list_t* l, girara_compare_function_t cmp, void*
   return true;
 }
 
-static void
-append_unique_point(girara_list_t* list, const unsigned int x, const unsigned int y) {
+static void append_unique_point(girara_list_t* list, const uintptr_t x, const uintptr_t y) {
   zathura_point_t* p = g_try_malloc(sizeof(zathura_point_t));
   if (p == NULL) {
     return;
@@ -388,10 +362,9 @@ append_unique_point(girara_list_t* list, const unsigned int x, const unsigned in
   }
 }
 
-static void
-rectangle_to_points(void* vrect, void* vlist) {
+static void rectangle_to_points(void* vrect, void* vlist) {
   const zathura_rectangle_t* rect = vrect;
-  girara_list_t* list = vlist;
+  girara_list_t* list             = vlist;
 
   append_unique_point(list, ufloor(rect->x1), ufloor(rect->y1));
   append_unique_point(list, ufloor(rect->x1), uceil(rect->y2));
@@ -399,64 +372,57 @@ rectangle_to_points(void* vrect, void* vlist) {
   append_unique_point(list, uceil(rect->x2), uceil(rect->y2));
 }
 
-static void
-append_unique_uint(girara_list_t* list, const unsigned int v) {
-  double* p = g_try_malloc(sizeof(v));
-  if (p == NULL) {
-    return;
-  }
-
-  *p = v;
-
-  if (girara_list_append_unique(list, cmp_uint, p) == false) {
-    g_free(p);
-  }
+static void append_unique_uint(girara_list_t* list, const uintptr_t v) {
+  girara_list_append_unique(list, cmp_uint, (void*)v);
 }
 
-// transform a rectangle into multiple new ones according a grid of points 
-static void
-cut_rectangle(const zathura_rectangle_t* rect, girara_list_t* points, girara_list_t* rectangles) {
+// transform a rectangle into multiple new ones according a grid of points
+static void cut_rectangle(const zathura_rectangle_t* rect, girara_list_t* points, girara_list_t* rectangles) {
   // Lists of ordred relevant points
-  girara_list_t* xs = girara_sorted_list_new2(cmp_uint, g_free);
-  girara_list_t* ys = girara_sorted_list_new2(cmp_uint, g_free);
+  girara_list_t* xs = girara_sorted_list_new(cmp_uint);
+  girara_list_t* ys = girara_sorted_list_new(cmp_uint);
 
   append_unique_uint(xs, uceil(rect->x2));
   append_unique_uint(ys, uceil(rect->y2));
 
-  GIRARA_LIST_FOREACH(points, zathura_point_t*, i_pt, pt)
+  for (size_t idx = 0; idx != girara_list_size(points); ++idx) {
+    const zathura_point_t* pt = girara_list_nth(points, idx);
     if (pt->x > ufloor(rect->x1) && pt->x < uceil(rect->x2)) {
       append_unique_uint(xs, pt->x);
     }
     if (pt->y > ufloor(rect->y1) && pt->y < uceil(rect->y2)) {
       append_unique_uint(ys, pt->y);
     }
-  GIRARA_LIST_FOREACH_END(points, zathura_point_t*, i_pt, pt);
+  }
 
   double x = ufloor(rect->x1);
-  GIRARA_LIST_FOREACH(xs, const double*, ix, cx)
-    double y = ufloor(rect->y1);
-    GIRARA_LIST_FOREACH(ys, const double*, iy, cy)
+  for (size_t idx = 0; idx != girara_list_size(xs); ++idx) {
+    const uintptr_t cx = (uintptr_t)girara_list_nth(xs, idx);
+    double y           = ufloor(rect->y1);
+    for (size_t inner_idx = 0; inner_idx != girara_list_size(ys); ++inner_idx) {
+      const uintptr_t cy     = (uintptr_t)girara_list_nth(ys, inner_idx);
       zathura_rectangle_t* r = g_try_malloc(sizeof(zathura_rectangle_t));
-      *r = (zathura_rectangle_t) {x, y, *cx, *cy};
-      y = *cy;
+
+      *r = (zathura_rectangle_t){x, y, cx, cy};
+      y  = cy;
       girara_list_append_unique(rectangles, cmp_rectangle, r);
-    GIRARA_LIST_FOREACH_END(ys, const double*, iy, cy);
-    x = *cx;
-  GIRARA_LIST_FOREACH_END(xs, const double*, ix, cx);
+    }
+    x = cx;
+  }
 
   girara_list_free(xs);
   girara_list_free(ys);
 }
 
-girara_list_t*
-flatten_rectangles(girara_list_t* rectangles) {
+girara_list_t* flatten_rectangles(girara_list_t* rectangles) {
   girara_list_t* new_rectangles = girara_list_new2(g_free);
-  girara_list_t* points = girara_list_new2(g_free);
+  girara_list_t* points         = girara_list_new2(g_free);
   girara_list_foreach(rectangles, rectangle_to_points, points);
 
-  GIRARA_LIST_FOREACH(rectangles, const zathura_rectangle_t*, i, r)
+  for (size_t idx = 0; idx != girara_list_size(rectangles); ++idx) {
+    const zathura_rectangle_t* r = girara_list_nth(rectangles, idx);
     cut_rectangle(r, points, new_rectangles);
-  GIRARA_LIST_FOREACH_END(rectangles, const zathura_rectangle_t*, i, r);
+  }
   girara_list_free(points);
   return new_rectangles;
 }
