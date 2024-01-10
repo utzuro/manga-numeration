@@ -14,9 +14,9 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Define paths
 MARKS_PATH = 'mark.pdf'
-INPUT_PATH = 'temp.pdf'
+INPUT_PATH = 'input.pdf'
 OUTPUT_PATH = 'temp_output.pdf'
-COORDINATES_PATH = "coordinates.txt"
+COORDINATES_PATH = "numbers"
 
 # Define constants for conversion
 ALPHA = 0.307  # For converting original coordination system to mm
