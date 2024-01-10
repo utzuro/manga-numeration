@@ -15,12 +15,12 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 # Define paths
 MARKS_PATH = 'mark.pdf'
 INPUT_PATH = 'input.pdf'
-OUTPUT_PATH = 'temp_output.pdf'
+OUTPUT_PATH = 'marked.pdf'
 COORDINATES_PATH = "numbers.txt"
 
 # Define constants for conversion
-ALPHA = 0.307  # For converting original coordination system to mm
-SCALE = 0.50  # For scaling marks
+ALPHA = 0.957  # For converting original coordination system to mm. Bigger number -> more disperse are marks.
+SCALE = 0.51  # For scaling marks, basically it moves marks up and down. Bigger number -> lower the marks.
 
 
 def logger_thread_func(log_queue):
@@ -60,9 +60,9 @@ def paths_are_valid(pdfs: list[str], txts: list[str]) -> bool:
         if not txt.endswith('.txt'):
             print("Coordinates file must be txt")
             return False
-    # if not files_are_accessible(pdfs + txts):
-    #     print("Input file or coordinates file does not exist")
-    #     return False
+    if not files_are_accessible(pdfs + txts):
+        print("Input file or coordinates file does not exist")
+        return False
     return True
 
 
@@ -138,7 +138,7 @@ def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
     Input files should not be empty and should be accessible.
     PDF files should have .pdf extension and coordinates file should have .txt extension.
     """
-    if not paths_are_valid([INPUT_PATH, OUTPUT_PATH], [COORDINATES_PATH]):
+    if not paths_are_valid([INPUT_PATH], [COORDINATES_PATH]):
         return False, 0, []
     msg = f"""
     Working with: 
