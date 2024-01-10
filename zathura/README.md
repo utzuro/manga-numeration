@@ -11,23 +11,25 @@ The following dependencies are required:
 
 * `gtk3` (>= 3.22)
 * `glib` (>= 2.50)
-* `girara` (>= 0.3.2)
+* `girara` (>= 0.4.1)
+* `libmagic` from file(1): for mime-type detection
+* `json-glib`
 
 The following dependencies are optional:
 
-* `sqlite3` (>= 3.6.23): splite3 database backend
-* `libmagic` from file(1): for mime-type detection
+* `sqlite3` (>= 3.6.23): sqlite3 database backend
 * `libsynctex` from TeXLive (>= 1.19): SyncTeX support
 * `libseccomp`: sandbox support
 
 For building zathura, the following dependencies are also required:
 
-* `meson` (>= 0.47)
+* `meson` (>= 0.61)
 * `gettext`
+* `pkgconf`
 
 The following dependencies are optional build-time only dependencies:
 
-* `check`: for tests
+* `check` (>= 0.11): for tests
 * `librvsg-bin`: PNG icons
 * `Sphinx`: manpages and HTML documentation
 * `doxygen`: HTML documentation
