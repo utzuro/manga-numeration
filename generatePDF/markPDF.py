@@ -2,7 +2,7 @@ import os
 import queue
 import threading
 import logging
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfReader, PdfWriter
 from numpy import double
 
 from reportlab.lib.colors import lightskyblue
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 MARKS_PATH = 'mark.pdf'
 INPUT_PATH = 'input.pdf'
 OUTPUT_PATH = 'temp_output.pdf'
-COORDINATES_PATH = "numbers"
+COORDINATES_PATH = "numbers.txt"
 
 # Define constants for conversion
 ALPHA = 0.307  # For converting original coordination system to mm
@@ -60,17 +60,17 @@ def paths_are_valid(pdfs: list[str], txts: list[str]) -> bool:
         if not txt.endswith('.txt'):
             print("Coordinates file must be txt")
             return False
-    if not files_are_accessible(pdfs + txts):
-        print("Input file or coordinates file does not exist")
-        return False
+    # if not files_are_accessible(pdfs + txts):
+    #     print("Input file or coordinates file does not exist")
+    #     return False
     return True
 
 
 def get_number_of_pages(path: str) -> int:
     """Return number of pages in PDF file"""
     with open(path, 'rb') as f:
-        pdf = PdfFileReader(f)
-        return pdf.getNumPages()
+        pdf = PdfReader(f)
+        return len(pdf.pages)
 
 
 def read_coordinates(txt_path: str) -> list[str]:
@@ -107,13 +107,13 @@ def create_marks_pdf(output_path: str, marks: list[str], size: tuple[int, int]):
 
 def draw_marks(original_path: str, result_path: str, marks_path: str):
     """Use marks PDF file to draw them on original PDF file page by page"""
-    mark_reader = PdfFileReader(marks_path)
-    original_reader = PdfFileReader(original_path)
-    writer = PdfFileWriter()
-    for page_number in range(mark_reader.getNumPages()):
-        page = original_reader.getPage(page_number)
-        page.mergePage(mark_reader.getPage(page_number))
-        writer.addPage(page)
+    mark_reader = PdfReader(marks_path)
+    original_reader = PdfReader(original_path)
+    writer = PdfWriter()
+    for page_number in range(len(mark_reader.pages)):
+        page = original_reader.pages[page_number]
+        page.merge_page(mark_reader.pages[page_number])
+        writer.add_page(page)
     with open(result_path, 'wb') as output:
         writer.write(output)
 
@@ -169,9 +169,9 @@ def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
 def get_page_size(pdf_path: str) -> tuple[int, int]:
     """Return size of input PDF file in mm"""
     with open(pdf_path, 'rb') as f:
-        pdf = PdfFileReader(f)
-        page = pdf.getPage(0)
-        return page.mediaBox[2], page.mediaBox[3]
+        pdf = PdfReader(f)
+        page = pdf.pages[0]
+        return page.mediabox[2], page.mediabox[3]
 
 
 def execute(coordinates: list[str]):
