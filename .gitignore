@@ -1,5 +1,6 @@
-*idea*
-mark.pdf
-numbers*
-test_output.pdf
+.idea
+.vscode
 .cache
+
+*.pdf
+numbers*
