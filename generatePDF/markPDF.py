@@ -1,252 +1,325 @@
-import os
-import queue
-import threading
+#!/usr/bin/env python3
+"""Overlay numbered markers on a PDF using coordinates exported by zathura."""
+
+from __future__ import annotations
+
+import argparse
 import logging
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Iterable, List, Sequence, Tuple
+
 from PyPDF2 import PdfReader, PdfWriter
-
-from reportlab.lib.colors import lightskyblue
-# from reportlab.lib.pagesizes import A4
+from reportlab.lib.colors import Color, black, lightskyblue
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.lib.units import mm
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+LOGGER = logging.getLogger(__name__)
 
-# Define paths
-MARKS_PATH = "mark.pdf"
-INPUT_PATH = "input.pdf"
-OUTPUT_PATH = "marked.pdf"
-COORDINATES_PATH = "numbers.txt"
-
-# Define constants for conversion
-ALPHA = 0.457  # For converting original coordination system to mm. Bigger number -> more disperse are marks.
-SCALE = 0.31  # For scaling marks, basically it moves marks up and down. Bigger number -> lower the marks.
+DEFAULT_INPUT = "input.pdf"
+DEFAULT_NUMBERS = "numbers.txt"
+DEFAULT_OUTPUT = "marked.pdf"
 
 
-def logger_thread_func(log_queue):
-    """Helper function for logger thread"""
-    while True:
-        msg = log_queue.get()
-        if msg == "stop":
-            break
-        logging.info(msg)
+@dataclass
+class Marker:
+    index: int
+    page: int
+    raw_x: float
+    raw_y: float
+    scale: float
 
 
-def stop_and_exit(
-    log_queue: queue.Queue, logger_thread: threading.Thread, exit_code: int
+@dataclass
+class PageCalibration:
+    x: float = 1.0
+    y: float = 1.0
+
+
+def clamp(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(value, upper))
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--input", "-i", default=DEFAULT_INPUT, help="Path to the source PDF"
+    )
+    parser.add_argument(
+        "--numbers",
+        "-n",
+        default=DEFAULT_NUMBERS,
+        help="Path to the coordinates file exported by zathura",
+    )
+    parser.add_argument(
+        "--output", "-o", default=DEFAULT_OUTPUT, help="Destination PDF path"
+    )
+    parser.add_argument(
+        "--font-size", type=float, default=16.0, help="Font size for the marker numbers"
+    )
+    parser.add_argument(
+        "--bubble-radius",
+        type=float,
+        default=12.0,
+        help="Radius of the circle behind each number (in points)",
+    )
+    parser.add_argument(
+        "--bubble-color",
+        default=None,
+        help="Bubble fill color in hex (defaults to reportlab.lightskyblue)",
+    )
+    parser.add_argument(
+        "--text-color", default=None, help="Text color in hex (defaults to black)"
+    )
+    return parser.parse_args()
+
+
+def parse_color(value: str | None, fallback: Color) -> Color:
+    if not value:
+        return fallback
+    value = value.lstrip("#")
+    if len(value) not in {6, 8}:
+        LOGGER.warning("Invalid color '%s', using default", value)
+        return fallback
+    # Split into RGB and optional alpha (ignored by reportlab colors)
+    r = int(value[0:2], 16) / 255
+    g = int(value[2:4], 16) / 255
+    b = int(value[4:6], 16) / 255
+    return Color(r, g, b)
+
+
+def read_markers(path: Path) -> List[Marker]:
+    markers: List[Marker] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_no, raw_line in enumerate(handle, start=1):
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.replace(",", " ").split()
+            if len(parts) < 4:
+                LOGGER.warning(
+                    "Skipping malformed line %d: %s", line_no, raw_line.rstrip()
+                )
+                continue
+            try:
+                page = int(parts[0])
+                x_val = float(parts[1])
+                y_val = float(parts[2])
+                scale = float(parts[3])
+            except ValueError:
+                LOGGER.warning(
+                    "Skipping unparsable line %d: %s", line_no, raw_line.rstrip()
+                )
+                continue
+            if page <= 0:
+                LOGGER.warning(
+                    "Skipping line %d with invalid page index: %s",
+                    line_no,
+                    raw_line.rstrip(),
+                )
+                continue
+            markers.append(Marker(len(markers) + 1, page, x_val, y_val, scale))
+    return markers
+
+
+def collect_page_sizes(reader: PdfReader) -> List[Tuple[float, float]]:
+    sizes: List[Tuple[float, float]] = []
+    for idx, page in enumerate(reader.pages):
+        box = page.mediabox
+        width = float(box.width)
+        height = float(box.height)
+        sizes.append((width, height))
+        LOGGER.debug("Page %d size: %sx%s", idx + 1, width, height)
+    return sizes
+
+
+def group_markers(markers: Iterable[Marker]) -> Dict[int, List[Marker]]:
+    grouped: Dict[int, List[Marker]] = {}
+    for marker in markers:
+        grouped.setdefault(marker.page, []).append(marker)
+    return grouped
+
+
+def derive_calibrations(
+    grouped: Dict[int, List[Marker]], page_sizes: Sequence[Tuple[float, float]]
+) -> Dict[int, PageCalibration]:
+    calibrations: Dict[int, PageCalibration] = {}
+    for page, page_markers in grouped.items():
+        width, height = page_sizes[page - 1]
+        max_doc_x = 0.0
+        max_doc_y = 0.0
+        for marker in page_markers:
+            if marker.scale <= 0:
+                continue
+            doc_x = marker.raw_x / marker.scale
+            doc_y = marker.raw_y / marker.scale
+            max_doc_x = max(max_doc_x, doc_x)
+            max_doc_y = max(max_doc_y, doc_y)
+
+        factor_x = max(1.0, max_doc_x / width if width > 0 else 1.0)
+        factor_y = max(1.0, max_doc_y / height if height > 0 else 1.0)
+
+        if factor_x > 1.01 or factor_y > 1.01:
+            LOGGER.info(
+                "Page %d: correcting coordinate scale (fx=%.3f, fy=%.3f) to fit page bounds",
+                page,
+                factor_x,
+                factor_y,
+            )
+
+        calibrations[page] = PageCalibration(factor_x, factor_y)
+
+    return calibrations
+
+
+def convert_to_pdf(
+    marker: Marker, page_size: Tuple[float, float], calibration: PageCalibration
+) -> Tuple[float, float]:
+    width, height = page_size
+    if marker.scale <= 0:
+        raise ValueError("Scale must be positive to convert coordinates")
+
+    doc_x = (marker.raw_x / marker.scale) / calibration.x
+    doc_y = (marker.raw_y / marker.scale) / calibration.y
+
+    pdf_x = clamp(doc_x, 0.0, width)
+    pdf_y = clamp(height - doc_y, 0.0, height)
+    return pdf_x, pdf_y
+
+
+def draw_page_markers(
+    canvas: Canvas,
+    markers: Sequence[Marker],
+    page_size: Tuple[float, float],
+    calibration: PageCalibration,
+    font_size: float,
+    radius: float,
+    bubble_color: Color,
+    text_color: Color,
 ):
-    """Gracefully stop logger thread and exit with given code"""
-    log_queue.put("stop")
-    logger_thread.join()
-    exit(exit_code)
-
-
-def files_are_accessible(paths: list[str]) -> bool:
-    """Check if all files exist, are not empty and are accessible"""
-    for path in paths:
-        if (
-            not os.path.exists(path)
-            or not os.path.isfile(path)
-            or not os.access(path, os.R_OK)
-            or os.path.getsize(path) == 0
-        ):
-            return False
-    return True
-
-
-def paths_are_valid(pdfs: list[str], txts: list[str]) -> bool:
-    """Check if all files have correct extensions and are accessible"""
-    for pdf in pdfs:
-        if not pdf.endswith(".pdf"):
-            print("Input and output files must be pdf")
-            return False
-    for txt in txts:
-        if not txt.endswith(".txt"):
-            print("Coordinates file must be txt")
-            return False
-    if not files_are_accessible(pdfs + txts):
-        print("Input file or coordinates file does not exist")
-        return False
-    return True
-
-
-def get_number_of_pages(path: str) -> int:
-    """Return number of pages in PDF file"""
-    with open(path, "rb") as f:
-        pdf = PdfReader(f)
-        return len(pdf.pages)
-
-
-def read_coordinates(txt_path: str) -> list[str]:
-    """Return list of coordinates for every mark to draw"""
-    with open(txt_path) as f:
-        content = f.readlines()
-        return content
-
-
-def create_marks_pdf(output_path: str, marks: list[str], size: tuple[float, float]):
-    print("Got size: ", size)
-    """Generate empty PDF file with marks on it"""
-    width_pt, height_pt = float(size[0]) * SCALE, float(size[1]) * SCALE
-    # height, width = float(size[0])*SCALE, float(size[1])*SCALE
-    canvas = Canvas(output_path, pagesize=(width_pt, height_pt))
-    # canvas = Canvas(output_path, pagesize=A4)
-
-    height_mm = height_pt / mm  # convert points → mm
-    # width_mm = width_pt / mm  # if you ever use it
-
-    bubble_number = 0
-    current_page = 1
-
-    for mark in marks:
-
-        line = mark.strip().replace(",", ".")
-        if not line:
+    width, height = page_size
+    if radius <= 0:
+        radius = font_size * 0.6
+    for marker in markers:
+        try:
+            x_pt, y_pt = convert_to_pdf(marker, (width, height), calibration)
+        except ValueError as exc:
+            LOGGER.warning("Skipping marker %d: %s", marker.index, exc)
             continue
-        parameters = mark.strip().replace(",", ".").split()
-        page_idx = int(parameters[0])
-        x_raw = float(parameters[1])
-        y_raw = float(parameters[2]) 
-        zoom = float(parameters[3])
 
-        x_mm: float = x_raw * ALPHA / zoom + 40
-        y_mm: float = height_mm - (y_raw * ALPHA) / zoom
-        print(x_mm)
-        print(y_mm)
-        # x = double(parameters[1]) * ALPHA / zoom
-        # y = height - (double(parameters[2]) * ALPHA) / zoom
+        # Bubble
+        canvas.setFillColor(bubble_color)
+        canvas.setStrokeColor(bubble_color)
+        canvas.circle(x_pt, y_pt, radius, stroke=0, fill=1)
 
-        while current_page < page_idx:
-            canvas.showPage() # Close page and move to the next one.
-            current_page += 1
+        # Number
+        canvas.setFillColor(text_color)
+        canvas.setFont("Helvetica-Bold", font_size)
+        # Align baseline to circle centre
+        text_y = y_pt - font_size * 0.35
+        canvas.drawCentredString(x_pt, text_y, str(marker.index))
 
-        canvas.setFillColor(lightskyblue)
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(x_mm * mm, y_mm * mm, str(bubble_number + 1))
-        bubble_number += 1
 
+def build_overlay_pdf(
+    target: Path,
+    page_sizes: Sequence[Tuple[float, float]],
+    grouped_markers: Dict[int, List[Marker]],
+    calibrations: Dict[int, PageCalibration],
+    font_size: float,
+    radius: float,
+    bubble_color: Color,
+    text_color: Color,
+):
+    canvas = Canvas(str(target))
+    total_pages = len(page_sizes)
+    for page_idx in range(total_pages):
+        width, height = page_sizes[page_idx]
+        canvas.setPageSize((width, height))
+        markers = grouped_markers.get(page_idx + 1, [])
+        calibration = calibrations.get(page_idx + 1, PageCalibration())
+        if markers:
+            LOGGER.debug("Drawing %d markers on page %d", len(markers), page_idx + 1)
+        draw_page_markers(
+            canvas,
+            markers,
+            (width, height),
+            calibration,
+            font_size,
+            radius,
+            bubble_color,
+            text_color,
+        )
+        canvas.showPage()
     canvas.save()
 
-def draw_marks(original_path: str, result_path: str, marks_path: str):
-    """Use marks PDF file to draw them on original PDF file page by page"""
-    mark_reader = PdfReader(marks_path)
+
+def merge_pdfs(original_path: Path, overlay_path: Path, output_path: Path):
     original_reader = PdfReader(original_path)
+    overlay_reader = PdfReader(overlay_path)
     writer = PdfWriter()
-    for page_number in range(len(mark_reader.pages)):
-        page = original_reader.pages[page_number]
-        page.merge_page(mark_reader.pages[page_number])
+
+    overlay_pages = len(overlay_reader.pages)
+    for idx, page in enumerate(original_reader.pages):
+        if idx < overlay_pages:
+            page.merge_page(overlay_reader.pages[idx])
         writer.add_page(page)
-    with open(result_path, "wb") as output:
-        writer.write(output)
 
-
-def cleanup(paths: list[str]):
-    """Remove files that were created during PDF generation"""
-    for path in paths:
-        if os.path.exists(path):
-            os.remove(path)
-
-
-def start_logger() -> tuple[queue.Queue, threading.Thread]:
-    """Logging is done in separate thread to avoid blocking main thread"""
-    log_queue = queue.Queue()
-    logger_thread = threading.Thread(target=logger_thread_func, args=(log_queue,))
-    logger_thread.start()
-    return log_queue, logger_thread
-
-
-def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
-    """
-    Input files should not be empty and should be accessible.
-    PDF files should have .pdf extension and coordinates file should have .txt extension.
-    """
-    if not paths_are_valid([INPUT_PATH], [COORDINATES_PATH]):
-        return False, 0, []
-    msg = f"""
-    Working with: 
-    Input file: {INPUT_PATH}
-    Coordinates file: {COORDINATES_PATH}
-    Output file: {OUTPUT_PATH}
-    """
-    log_queue.put(msg)
-
-    input_page_count = get_number_of_pages(INPUT_PATH)
-    if input_page_count == 0:
-        print("Input file is empty")
-        return False, 0, []
-    msg = f"""
-    Information about {INPUT_PATH}:
-    Number of pages: {input_page_count}
-    """
-    log_queue.put(msg)
-
-    coordinates = read_coordinates(COORDINATES_PATH)
-    if len(coordinates) == 0:
-        print("Coordinates file is empty")
-        return False, 0, []
-
-    return True, input_page_count, coordinates
-
-
-def get_page_size(pdf_path: str) -> tuple[int, int]:
-    """Return size of input PDF file in mm"""
-    with open(pdf_path, "rb") as f:
-        pdf = PdfReader(f)
-        page = pdf.pages[0]
-        return page.mediabox[2], page.mediabox[3]
-
-
-def execute(coordinates: list[str]):
-    """Generate marks PDF file and draw marks on original PDF file"""
-    try:
-        size = get_page_size(INPUT_PATH)
-        create_marks_pdf(MARKS_PATH, coordinates, size)
-        draw_marks(INPUT_PATH, OUTPUT_PATH, MARKS_PATH)
-
-    except Exception as e:
-        raise RuntimeError("There was an error during PDF generation: ", e)
-
-    try:
-        cleanup([MARKS_PATH])
-
-    except Exception as e:
-        raise RuntimeError("There was an error during cleanup: ", e)
-
-
-def validate_output(input_page_count: int, log_queue: queue.Queue):
-    """Output file should not be empty and should have the same number of pages as input file"""
-    output_page_count = get_number_of_pages(OUTPUT_PATH)
-    if output_page_count == 0:
-        print("Something went wrong: output file is empty")
-        exit(1)
-    if input_page_count != output_page_count:
-        print(
-            "Some pages were not processed correctly: "
-            "input and output page count does not match.\n"
-        )
-    msg = f"""
-    Information about {OUTPUT_PATH}:
-    Number of pages: {output_page_count}
-    """
-    log_queue.put(msg)
+    with output_path.open("wb") as handle:
+        writer.write(handle)
 
 
 def main():
-    log_queue, logger_thread = start_logger()
-    valid, input_page_count, coordinates = validate_input(log_queue)
-    if not valid:
-        stop_and_exit(log_queue, logger_thread, 1)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    args = parse_args()
+
+    input_path = Path(args.input)
+    numbers_path = Path(args.numbers)
+    output_path = Path(args.output)
+
+    if not input_path.exists():
+        raise SystemExit(f"Input PDF '{input_path}' does not exist")
+    if not numbers_path.exists():
+        raise SystemExit(f"Coordinates file '{numbers_path}' does not exist")
+
+    markers = read_markers(numbers_path)
+    if not markers:
+        LOGGER.warning(
+            "No markers found in %s. The output will match the input.", numbers_path
+        )
+
+    reader = PdfReader(input_path)
+    page_sizes = collect_page_sizes(reader)
+    grouped = group_markers(markers)
+    calibrations = derive_calibrations(grouped, page_sizes)
+
+    missing_pages = sorted(p for p in grouped.keys() if p < 1 or p > len(page_sizes))
+    if missing_pages:
+        LOGGER.warning(
+            "Markers reference pages outside the document: %s", missing_pages
+        )
+
+    bubble_color = parse_color(args.bubble_color, lightskyblue)
+    text_color = parse_color(args.text_color, black)
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+        overlay_path = Path(tmp_file.name)
 
     try:
-        execute(coordinates)
-    except RuntimeError as e:
-        print(e)
-        stop_and_exit(log_queue, logger_thread, 1)
-    except Exception as e:
-        print("Something went wrong: ", e)
-        stop_and_exit(log_queue, logger_thread, 1)
-
-    validate_output(input_page_count, log_queue)
-    stop_and_exit(log_queue, logger_thread, 0)
+        build_overlay_pdf(
+            overlay_path,
+            page_sizes,
+            grouped,
+            calibrations,
+            args.font_size,
+            args.bubble_radius,
+            bubble_color,
+            text_color,
+        )
+        merge_pdfs(input_path, overlay_path, output_path)
+        LOGGER.info("Saved marked PDF to %s", output_path)
+    finally:
+        if overlay_path.exists():
+            overlay_path.unlink()
 
 
 if __name__ == "__main__":
