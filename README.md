@@ -40,10 +40,10 @@ Where:
 
 ```bash
 cd generatePDF
-python markPDF.py --input manga.pdf --numbers /path/to/numbers.txt --output marked.pdf
+uv run ./markPDF.py --input manga.pdf --numbers /path/to/numbers.txt --output marked.pdf
 ```
 
-The defaults still use `input.pdf`, `numbers.txt` and `marked.pdf` in the current directory, so running `python markPDF.py` is enough when you copy the files next to the script.
+The defaults still use `input.pdf`, `numbers.txt` and `marked.pdf` in the current directory, so running `uv run ./markPDF.py` is enough when you copy the files next to the script.
 
 ### Options
 
@@ -53,4 +53,4 @@ The defaults still use `input.pdf`, `numbers.txt` and `marked.pdf` in the curren
 
 ## How it works
 
-The script inspects every page in the source PDF, converts the recorded widget coordinates back into PDF units (points) using the zoom factor stored in the log, flips the Y axis, and merges a temporary overlay PDF on top of the original. Because we read the real page size from the file, the result is reliable for any PDF size without fiddling with mysterious constants.
+The script inspects every page in the source PDF, converts the recorded widget coordinates back into PDF units (points) using the zoom factor stored in the log, flips the Y axis, and merges a temporary overlay PDF on top of the original. If the captured coordinates extend beyond the page (because of padding or unusual widget scaling), the script automatically normalises them to keep every marker inside the page bounds. Thanks to the real page metrics from the PDF, the result is reliable for any document size without fiddling with mysterious constants.

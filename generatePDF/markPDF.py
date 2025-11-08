@@ -31,9 +31,9 @@ class Marker:
 
 
 @dataclass
-class PageCalibration:
-    x: float = 1.0
-    y: float = 1.0
+class PageNormalization:
+    scale_x: float = 1.0
+    scale_y: float = 1.0
 
 
 def clamp(value: float, lower: float, upper: float) -> float:
@@ -140,10 +140,10 @@ def group_markers(markers: Iterable[Marker]) -> Dict[int, List[Marker]]:
     return grouped
 
 
-def derive_calibrations(
+def derive_normalizations(
     grouped: Dict[int, List[Marker]], page_sizes: Sequence[Tuple[float, float]]
-) -> Dict[int, PageCalibration]:
-    calibrations: Dict[int, PageCalibration] = {}
+) -> Dict[int, PageNormalization]:
+    normalizations: Dict[int, PageNormalization] = {}
     for page, page_markers in grouped.items():
         width, height = page_sizes[page - 1]
         max_doc_x = 0.0
@@ -156,31 +156,31 @@ def derive_calibrations(
             max_doc_x = max(max_doc_x, doc_x)
             max_doc_y = max(max_doc_y, doc_y)
 
-        factor_x = max(1.0, max_doc_x / width if width > 0 else 1.0)
-        factor_y = max(1.0, max_doc_y / height if height > 0 else 1.0)
+        scale_x = max(1.0, max_doc_x / width if width > 0 else 1.0)
+        scale_y = max(1.0, max_doc_y / height if height > 0 else 1.0)
 
-        if factor_x > 1.01 or factor_y > 1.01:
+        if scale_x > 1.01 or scale_y > 1.01:
             LOGGER.info(
-                "Page %d: correcting coordinate scale (fx=%.3f, fy=%.3f) to fit page bounds",
+                "Page %d: adjusting coordinates to page bounds (fx=%.3f, fy=%.3f)",
                 page,
-                factor_x,
-                factor_y,
+                scale_x,
+                scale_y,
             )
 
-        calibrations[page] = PageCalibration(factor_x, factor_y)
+        normalizations[page] = PageNormalization(scale_x, scale_y)
 
-    return calibrations
+    return normalizations
 
 
 def convert_to_pdf(
-    marker: Marker, page_size: Tuple[float, float], calibration: PageCalibration
+    marker: Marker, page_size: Tuple[float, float], normalization: PageNormalization
 ) -> Tuple[float, float]:
     width, height = page_size
     if marker.scale <= 0:
         raise ValueError("Scale must be positive to convert coordinates")
 
-    doc_x = (marker.raw_x / marker.scale) / calibration.x
-    doc_y = (marker.raw_y / marker.scale) / calibration.y
+    doc_x = (marker.raw_x / marker.scale) / normalization.scale_x
+    doc_y = (marker.raw_y / marker.scale) / normalization.scale_y
 
     pdf_x = clamp(doc_x, 0.0, width)
     pdf_y = clamp(height - doc_y, 0.0, height)
@@ -191,7 +191,7 @@ def draw_page_markers(
     canvas: Canvas,
     markers: Sequence[Marker],
     page_size: Tuple[float, float],
-    calibration: PageCalibration,
+    normalization: PageNormalization,
     font_size: float,
     radius: float,
     bubble_color: Color,
@@ -202,7 +202,7 @@ def draw_page_markers(
         radius = font_size * 0.6
     for marker in markers:
         try:
-            x_pt, y_pt = convert_to_pdf(marker, (width, height), calibration)
+            x_pt, y_pt = convert_to_pdf(marker, (width, height), normalization)
         except ValueError as exc:
             LOGGER.warning("Skipping marker %d: %s", marker.index, exc)
             continue
@@ -224,7 +224,7 @@ def build_overlay_pdf(
     target: Path,
     page_sizes: Sequence[Tuple[float, float]],
     grouped_markers: Dict[int, List[Marker]],
-    calibrations: Dict[int, PageCalibration],
+    normalizations: Dict[int, PageNormalization],
     font_size: float,
     radius: float,
     bubble_color: Color,
@@ -236,14 +236,14 @@ def build_overlay_pdf(
         width, height = page_sizes[page_idx]
         canvas.setPageSize((width, height))
         markers = grouped_markers.get(page_idx + 1, [])
-        calibration = calibrations.get(page_idx + 1, PageCalibration())
         if markers:
             LOGGER.debug("Drawing %d markers on page %d", len(markers), page_idx + 1)
+        normalization = normalizations.get(page_idx + 1, PageNormalization())
         draw_page_markers(
             canvas,
             markers,
             (width, height),
-            calibration,
+            normalization,
             font_size,
             radius,
             bubble_color,
@@ -290,7 +290,7 @@ def main():
     reader = PdfReader(input_path)
     page_sizes = collect_page_sizes(reader)
     grouped = group_markers(markers)
-    calibrations = derive_calibrations(grouped, page_sizes)
+    normalizations = derive_normalizations(grouped, page_sizes)
 
     missing_pages = sorted(p for p in grouped.keys() if p < 1 or p > len(page_sizes))
     if missing_pages:
@@ -309,7 +309,7 @@ def main():
             overlay_path,
             page_sizes,
             grouped,
-            calibrations,
+            normalizations,
             args.font_size,
             args.bubble_radius,
             bubble_color,
