@@ -3,38 +3,39 @@ import queue
 import threading
 import logging
 from PyPDF2 import PdfReader, PdfWriter
-from numpy import double
 
 from reportlab.lib.colors import lightskyblue
-from reportlab.lib.pagesizes import A4
+# from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.units import mm
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 # Define paths
-MARKS_PATH = 'mark.pdf'
-INPUT_PATH = 'input.pdf'
-OUTPUT_PATH = 'marked.pdf'
+MARKS_PATH = "mark.pdf"
+INPUT_PATH = "input.pdf"
+OUTPUT_PATH = "marked.pdf"
 COORDINATES_PATH = "numbers.txt"
 
 # Define constants for conversion
-ALPHA = 0.957  # For converting original coordination system to mm. Bigger number -> more disperse are marks.
-SCALE = 0.51  # For scaling marks, basically it moves marks up and down. Bigger number -> lower the marks.
+ALPHA = 0.457  # For converting original coordination system to mm. Bigger number -> more disperse are marks.
+SCALE = 0.31  # For scaling marks, basically it moves marks up and down. Bigger number -> lower the marks.
 
 
 def logger_thread_func(log_queue):
     """Helper function for logger thread"""
     while True:
         msg = log_queue.get()
-        if msg == 'stop':
+        if msg == "stop":
             break
         logging.info(msg)
 
 
-def stop_and_exit(log_queue: queue.Queue, logger_thread: threading.Thread, exit_code: int):
+def stop_and_exit(
+    log_queue: queue.Queue, logger_thread: threading.Thread, exit_code: int
+):
     """Gracefully stop logger thread and exit with given code"""
-    log_queue.put('stop')
+    log_queue.put("stop")
     logger_thread.join()
     exit(exit_code)
 
@@ -42,10 +43,12 @@ def stop_and_exit(log_queue: queue.Queue, logger_thread: threading.Thread, exit_
 def files_are_accessible(paths: list[str]) -> bool:
     """Check if all files exist, are not empty and are accessible"""
     for path in paths:
-        if not os.path.exists(path) \
-                or not os.path.isfile(path) \
-                or not os.access(path, os.R_OK) \
-                or os.path.getsize(path) == 0:
+        if (
+            not os.path.exists(path)
+            or not os.path.isfile(path)
+            or not os.access(path, os.R_OK)
+            or os.path.getsize(path) == 0
+        ):
             return False
     return True
 
@@ -53,11 +56,11 @@ def files_are_accessible(paths: list[str]) -> bool:
 def paths_are_valid(pdfs: list[str], txts: list[str]) -> bool:
     """Check if all files have correct extensions and are accessible"""
     for pdf in pdfs:
-        if not pdf.endswith('.pdf'):
+        if not pdf.endswith(".pdf"):
             print("Input and output files must be pdf")
             return False
     for txt in txts:
-        if not txt.endswith('.txt'):
+        if not txt.endswith(".txt"):
             print("Coordinates file must be txt")
             return False
     if not files_are_accessible(pdfs + txts):
@@ -68,7 +71,7 @@ def paths_are_valid(pdfs: list[str], txts: list[str]) -> bool:
 
 def get_number_of_pages(path: str) -> int:
     """Return number of pages in PDF file"""
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         pdf = PdfReader(f)
         return len(pdf.pages)
 
@@ -80,30 +83,48 @@ def read_coordinates(txt_path: str) -> list[str]:
         return content
 
 
-def create_marks_pdf(output_path: str, marks: list[str], size: tuple[int, int]):
+def create_marks_pdf(output_path: str, marks: list[str], size: tuple[float, float]):
     print("Got size: ", size)
     """Generate empty PDF file with marks on it"""
-    canvas = Canvas(output_path, pagesize=A4)
-    height, width = float(size[0])*SCALE, float(size[1])*SCALE
-    bubble_number = 0
-    page_number = 1
-    for mark in marks:
-        mark = mark.replace(',', '.')
-        parameters = mark.split(' ')
-        zoom = double(parameters[3])
-        x = double(parameters[1]) * ALPHA / zoom
-        y = height - (double(parameters[2]) * ALPHA) / zoom
+    width_pt, height_pt = float(size[0]) * SCALE, float(size[1]) * SCALE
+    # height, width = float(size[0])*SCALE, float(size[1])*SCALE
+    canvas = Canvas(output_path, pagesize=(width_pt, height_pt))
+    # canvas = Canvas(output_path, pagesize=A4)
 
-        if page_number < int(parameters[0]):
-            page_number = int(parameters[0])
-            canvas.showPage()  # Close page and move to the next one.
+    height_mm = height_pt / mm  # convert points → mm
+    # width_mm = width_pt / mm  # if you ever use it
+
+    bubble_number = 0
+    current_page = 1
+
+    for mark in marks:
+
+        line = mark.strip().replace(",", ".")
+        if not line:
+            continue
+        parameters = mark.strip().replace(",", ".").split()
+        page_idx = int(parameters[0])
+        x_raw = float(parameters[1])
+        y_raw = float(parameters[2]) 
+        zoom = float(parameters[3])
+
+        x_mm: float = x_raw * ALPHA / zoom + 40
+        y_mm: float = height_mm - (y_raw * ALPHA) / zoom
+        print(x_mm)
+        print(y_mm)
+        # x = double(parameters[1]) * ALPHA / zoom
+        # y = height - (double(parameters[2]) * ALPHA) / zoom
+
+        while current_page < page_idx:
+            canvas.showPage() # Close page and move to the next one.
+            current_page += 1
 
         canvas.setFillColor(lightskyblue)
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(x * mm, y * mm, str(bubble_number + 1))
+        canvas.drawString(x_mm * mm, y_mm * mm, str(bubble_number + 1))
         bubble_number += 1
-    canvas.save()
 
+    canvas.save()
 
 def draw_marks(original_path: str, result_path: str, marks_path: str):
     """Use marks PDF file to draw them on original PDF file page by page"""
@@ -114,7 +135,7 @@ def draw_marks(original_path: str, result_path: str, marks_path: str):
         page = original_reader.pages[page_number]
         page.merge_page(mark_reader.pages[page_number])
         writer.add_page(page)
-    with open(result_path, 'wb') as output:
+    with open(result_path, "wb") as output:
         writer.write(output)
 
 
@@ -168,7 +189,7 @@ def validate_input(log_queue: queue.Queue) -> tuple[bool, int, list[str]]:
 
 def get_page_size(pdf_path: str) -> tuple[int, int]:
     """Return size of input PDF file in mm"""
-    with open(pdf_path, 'rb') as f:
+    with open(pdf_path, "rb") as f:
         pdf = PdfReader(f)
         page = pdf.pages[0]
         return page.mediabox[2], page.mediabox[3]
@@ -198,8 +219,10 @@ def validate_output(input_page_count: int, log_queue: queue.Queue):
         print("Something went wrong: output file is empty")
         exit(1)
     if input_page_count != output_page_count:
-        print("Some pages were not processed correctly: "
-              "input and output page count does not match.\n")
+        print(
+            "Some pages were not processed correctly: "
+            "input and output page count does not match.\n"
+        )
     msg = f"""
     Information about {OUTPUT_PATH}:
     Number of pages: {output_page_count}
@@ -226,5 +249,5 @@ def main():
     stop_and_exit(log_queue, logger_thread, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
