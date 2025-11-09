@@ -55,17 +55,17 @@ def parse_args() -> argparse.Namespace:
         "--output", "-o", default=DEFAULT_OUTPUT, help="Destination PDF path"
     )
     parser.add_argument(
-        "--font-size", type=float, default=16.0, help="Font size for the marker numbers"
+        "--font-size", type=float, default=6.0, help="Font size for the marker numbers"
     )
     parser.add_argument(
         "--bubble-radius",
         type=float,
-        default=12.0,
+        default=6.0,
         help="Radius of the circle behind each number (in points)",
     )
     parser.add_argument(
         "--bubble-color",
-        default=None,
+        default="#a1a1ffA7",
         help="Bubble fill color in hex (defaults to reportlab.lightskyblue)",
     )
     parser.add_argument(
@@ -81,11 +81,12 @@ def parse_color(value: str | None, fallback: Color) -> Color:
     if len(value) not in {6, 8}:
         LOGGER.warning("Invalid color '%s', using default", value)
         return fallback
-    # Split into RGB and optional alpha (ignored by reportlab colors)
+    # Split into RGB and optional alpha
     r = int(value[0:2], 16) / 255
     g = int(value[2:4], 16) / 255
     b = int(value[4:6], 16) / 255
-    return Color(r, g, b)
+    a = int(value[6:8], 16) / 255 if len(value) == 8 else 1.0
+    return Color(r, g, b, a)
 
 
 def read_markers(path: Path) -> List[Marker]:
@@ -210,6 +211,9 @@ def draw_page_markers(
         # Bubble
         canvas.setFillColor(bubble_color)
         canvas.setStrokeColor(bubble_color)
+        if bubble_color.alpha < 1.0:
+            canvas.setFillAlpha(bubble_color.alpha)
+            canvas.setStrokeAlpha(bubble_color.alpha)
         canvas.circle(x_pt, y_pt, radius, stroke=0, fill=1)
 
         # Number
